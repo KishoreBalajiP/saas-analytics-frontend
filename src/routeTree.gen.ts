@@ -32,6 +32,8 @@ import { Route as AdminMonitoringRouteImport } from './routes/admin.monitoring'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
+import { Route as DatasetsIndexRouteImport } from './routes/datasets.index'
+import { Route as DatasetsConnectorIdRouteImport } from './routes/datasets.$connectorId'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginForgotRouteImport } from './routes/login.forgot'
 import { Route as LoginResetRouteImport } from './routes/login.reset'
@@ -151,6 +153,16 @@ const AdminTenantsRoute = AdminTenantsRouteImport.update({
   path: '/admin/tenants',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsIndexRoute = DatasetsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DatasetsRoute,
+} as any)
+const DatasetsConnectorIdRoute = DatasetsConnectorIdRouteImport.update({
+  id: '/$connectorId',
+  path: '/$connectorId',
+  getParentRoute: () => DatasetsRoute,
+} as any)
 const LoginIndexRoute = LoginIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -174,7 +186,7 @@ export interface FileRoutesByFullPath {
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRoute
-  '/datasets': typeof DatasetsRoute
+  '/datasets': typeof DatasetsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
@@ -191,8 +203,10 @@ export interface FileRoutesByFullPath {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
+  '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
 }
 export interface FileRoutesByTo {
@@ -202,7 +216,6 @@ export interface FileRoutesByTo {
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRoute
-  '/datasets': typeof DatasetsRoute
   '/embed': typeof EmbedRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
@@ -218,8 +231,10 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
+  '/datasets': typeof DatasetsIndexRoute
   '/login': typeof LoginIndexRoute
 }
 export interface FileRoutesById {
@@ -230,7 +245,7 @@ export interface FileRoutesById {
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRoute
-  '/datasets': typeof DatasetsRoute
+  '/datasets': typeof DatasetsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
@@ -247,8 +262,10 @@ export interface FileRoutesById {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
+  '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
 }
 export interface FileRouteTypes {
@@ -277,8 +294,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
+    | '/datasets/'
     | '/login/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -288,7 +307,6 @@ export interface FileRouteTypes {
     | '/api-keys'
     | '/dashboard'
     | '/dashboards'
-    | '/datasets'
     | '/embed'
     | '/notifications'
     | '/profile'
@@ -304,8 +322,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
+    | '/datasets'
     | '/login'
   id:
     | '__root__'
@@ -332,8 +352,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
+    | '/datasets/'
     | '/login/'
   fileRoutesById: FileRoutesById
 }
@@ -344,7 +366,7 @@ export interface RootRouteChildren {
   ApiKeysRoute: typeof ApiKeysRoute
   DashboardRoute: typeof DashboardRoute
   DashboardsRoute: typeof DashboardsRoute
-  DatasetsRoute: typeof DatasetsRoute
+  DatasetsRoute: typeof DatasetsRouteWithChildren
   EmbedRoute: typeof EmbedRoute
   LoginRoute: typeof LoginRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
@@ -526,6 +548,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTenantsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets/': {
+      id: '/datasets/'
+      path: '/'
+      fullPath: '/datasets/'
+      preLoaderRoute: typeof DatasetsIndexRouteImport
+      parentRoute: typeof DatasetsRoute
+    }
+    '/datasets/$connectorId': {
+      id: '/datasets/$connectorId'
+      path: '/$connectorId'
+      fullPath: '/datasets/$connectorId'
+      preLoaderRoute: typeof DatasetsConnectorIdRouteImport
+      parentRoute: typeof DatasetsRoute
+    }
     '/login/': {
       id: '/login/'
       path: '/'
@@ -550,6 +586,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DatasetsRouteChildren {
+  DatasetsConnectorIdRoute: typeof DatasetsConnectorIdRoute
+  DatasetsIndexRoute: typeof DatasetsIndexRoute
+}
+
+const DatasetsRouteChildren: DatasetsRouteChildren = {
+  DatasetsConnectorIdRoute: DatasetsConnectorIdRoute,
+  DatasetsIndexRoute: DatasetsIndexRoute,
+}
+
+const DatasetsRouteWithChildren = DatasetsRoute._addFileChildren(
+  DatasetsRouteChildren,
+)
+
 interface LoginRouteChildren {
   LoginForgotRoute: typeof LoginForgotRoute
   LoginResetRoute: typeof LoginResetRoute
@@ -571,7 +621,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKeysRoute: ApiKeysRoute,
   DashboardRoute: DashboardRoute,
   DashboardsRoute: DashboardsRoute,
-  DatasetsRoute: DatasetsRoute,
+  DatasetsRoute: DatasetsRouteWithChildren,
   EmbedRoute: EmbedRoute,
   LoginRoute: LoginRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
