@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,13 +24,10 @@ import type {
 } from "@/lib/api/types";
 import type { Connector } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { validateAnalyticsQuery, type QueryValidationError } from "@/features/analytics/validation";
 
 const METRIC_OPS: MetricOp[] = ["count", "sum", "avg", "min", "max"];
 const FILTER_OPS: FilterOp[] = ["eq", "neq", "in", "nin", "gt", "gte", "lt", "lte", "exists"];
-
-function uniqueId() {
-  return Math.random().toString(36).slice(2, 9);
-}
 
 interface QueryBuilderProps {
   connectors: Connector[];
@@ -53,6 +50,7 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
   const [page, setPage] = useState(initialParams?.page ?? 1);
   const [limit, setLimit] = useState(initialParams?.limit ?? 50);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<QueryValidationError[]>([]);
 
   function toggleConnector(id: string) {
     setSelectedConnectorIds((prev) =>
@@ -135,7 +133,10 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
   }
 
   function handleRun() {
-    onRun(buildParams());
+    const params = buildParams();
+    const errors = validateAnalyticsQuery(params);
+    setValidationErrors(errors);
+    if (!errors.length) onRun(params);
   }
 
   return (
@@ -186,7 +187,7 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
           </p>
         )}
         {metrics.map((metric, index) => (
-          <div key={uniqueId()} className="flex items-center gap-2">
+          <div key={`metric-${index}`} className="flex items-center gap-2">
             <Input
               placeholder="field name"
               value={metric.field}
@@ -239,7 +240,7 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
           </Button>
         </div>
         {groupByFields.map((field, index) => (
-          <div key={uniqueId()} className="flex items-center gap-2">
+          <div key={`group-${index}`} className="flex items-center gap-2">
             <Input
               placeholder="field name"
               value={field}
@@ -283,7 +284,7 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
           </div>
         </div>
         {filters.map((filter, index) => (
-          <div key={uniqueId()} className="flex items-center gap-2">
+          <div key={`filter-${index}`} className="flex items-center gap-2">
             <Input
               placeholder="field"
               value={filter.field}
@@ -369,7 +370,7 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
                 </Button>
               </div>
               {orderBy.map((order, index) => (
-                <div key={uniqueId()} className="flex items-center gap-2">
+                <div key={`sort-${index}`} className="flex items-center gap-2">
                   <Input
                     placeholder="field"
                     value={order.field}
@@ -433,6 +434,14 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
           </div>
         )}
       </div>
+
+      {validationErrors.length > 0 && (
+        <ul className="space-y-1 text-sm text-destructive" role="alert">
+          {validationErrors.map((error) => (
+            <li key={`${error.field}-${error.message}`}>{error.message}</li>
+          ))}
+        </ul>
+      )}
 
       {/* Run button */}
       <Button

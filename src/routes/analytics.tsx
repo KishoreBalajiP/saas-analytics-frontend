@@ -25,6 +25,7 @@ export const Route = createFileRoute("/analytics")({
 function AnalyticsPage() {
   const { permissions } = useTenantSession();
   const canView = hasPermission(permissions, Permissions.ANALYTICS_VIEW);
+  const canExport = hasPermission(permissions, Permissions.ANALYTICS_EXPORT);
 
   const connectorsQuery = useQuery({
     queryKey: ["connectors", "list", { limit: 200 }],
@@ -50,6 +51,7 @@ function AnalyticsPage() {
   }
 
   async function handleRun(params: AnalyticsQueryParams) {
+    if (loading) return;
     setLoading(true);
     setError(null);
     setLastParams(params);
@@ -65,6 +67,22 @@ function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (connectorsQuery.isError) {
+    return (
+      <TenantPortal>
+        <PageHeader
+          title="Analytics"
+          crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Analytics" }]}
+        />
+        <ErrorState
+          error={connectorsQuery.error}
+          onRetry={() => connectorsQuery.refetch()}
+          resource="Datasets"
+        />
+      </TenantPortal>
+    );
   }
 
   function handleRerun(params: AnalyticsQueryParams) {
@@ -112,6 +130,7 @@ function AnalyticsPage() {
               loading={loading}
               error={error}
               lastParams={lastParams}
+              canExport={canExport}
               onPageChange={(newPage) => {
                 if (lastParams) {
                   void handleRun({ ...lastParams, page: newPage });

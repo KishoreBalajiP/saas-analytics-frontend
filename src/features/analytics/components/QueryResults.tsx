@@ -23,6 +23,7 @@ interface QueryResultsProps {
   error?: unknown;
   lastParams?: AnalyticsQueryParams | undefined;
   onPageChange?: (page: number) => void;
+  canExport?: boolean;
 }
 
 type ChartType = "bar" | "line" | "area" | "pie";
@@ -39,6 +40,7 @@ export function QueryResults({
   error,
   lastParams,
   onPageChange,
+  canExport = false,
 }: QueryResultsProps) {
   const [view, setView] = useState<"table" | "chart">("table");
   const [chartType, setChartType] = useState<ChartType>("bar");
@@ -131,17 +133,19 @@ export function QueryResults({
             </Select>
           )}
 
-          <Select onValueChange={(v) => handleExport(v as "json" | "csv" | "xlsx")}>
-            <SelectTrigger className="h-7 w-20 text-xs" aria-label="Export format">
-              <Download className="h-3 w-3" />
-              <SelectValue placeholder="Export" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="csv">CSV</SelectItem>
-              <SelectItem value="xlsx">XLSX</SelectItem>
-              <SelectItem value="json">JSON</SelectItem>
-            </SelectContent>
-          </Select>
+          {canExport && (
+            <Select onValueChange={(v) => handleExport(v as "json" | "csv" | "xlsx")}>
+              <SelectTrigger className="h-7 w-20 text-xs" aria-label="Export format">
+                <Download className="h-3 w-3" />
+                <SelectValue placeholder="Export" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="xlsx">XLSX</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
