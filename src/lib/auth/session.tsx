@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import * as authApi from "@/lib/api/auth";
+import * as authApi from "@/features/auth/api";
 import { ApiError, getAccessToken, setAccessToken } from "@/lib/api/client";
 import type { Me } from "@/lib/api/types";
 

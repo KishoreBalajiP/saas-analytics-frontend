@@ -4,12 +4,12 @@ import { useState } from "react";
 
 import { TenantPortal } from "@/components/layout/TenantPortal";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { QueryBuilder } from "@/components/analytics/QueryBuilder";
-import { QueryResults } from "@/components/analytics/QueryResults";
-import { QueryHistory } from "@/components/analytics/QueryHistory";
+import { QueryBuilder } from "@/features/analytics/components/QueryBuilder";
+import { QueryResults } from "@/features/analytics/components/QueryResults";
+import { QueryHistory } from "@/features/analytics/components/QueryHistory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import * as analyticsApi from "@/lib/api/analytics";
-import * as connectorsApi from "@/lib/api/connectors";
+import * as analyticsApi from "@/features/analytics/api";
+import * as connectorsApi from "@/features/datasets/api";
 import type { AnalyticsQueryParams, AnalyticsResult } from "@/lib/api/types";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";

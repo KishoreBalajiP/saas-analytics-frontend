@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".output",
+  "framework": null,
+  "regions": ["iad1"],
+  "trailingSlash": false
+}

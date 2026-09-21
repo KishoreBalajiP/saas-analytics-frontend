@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ConnectorDetailView } from "@/components/connectors/ConnectorDetailView";
+import { ConnectorDetailView } from "@/features/datasets/components/ConnectorDetailView";
 
 export const Route = createFileRoute("/datasets/$connectorId")({
   head: () => ({

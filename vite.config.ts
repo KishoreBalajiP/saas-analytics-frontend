@@ -12,4 +12,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Pin the Nitro server build to Vercel so `npm run build` produces a
+  // Vercel-shaped `.output/` (functions, not cloudflare-module). Override with
+  // `NITRO_PRESET=<preset>` env var when targeting another platform.
+  nitro: { preset: "vercel" },
 });

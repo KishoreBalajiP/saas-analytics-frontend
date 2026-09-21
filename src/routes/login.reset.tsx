@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import * as authApi from "@/lib/api/auth";
+import * as authApi from "@/features/auth/api";
 
 export const Route = createFileRoute("/login/reset")({
   validateSearch: (search: Record<string, unknown>) => ({

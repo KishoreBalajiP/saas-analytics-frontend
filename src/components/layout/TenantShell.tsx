@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import * as notificationsApi from "@/lib/api/notifications";
+import * as notificationsApi from "@/features/notifications/api";
 import { useTenantSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 

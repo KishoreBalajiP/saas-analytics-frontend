@@ -13,12 +13,12 @@ import {
   requestFull,
   redactHeaders,
 } from "@/lib/api/client";
-import * as authApi from "@/lib/api/auth";
+import * as authApi from "@/features/auth/api";
 import { Permissions, hasPermission, hasAnyPermission, hasAllPermissions } from "@/lib/permissions";
 import { storeTenantSlug } from "@/lib/auth/session";
 
-vi.mock("@/lib/api/auth", () => {
-  const actual = vi.importActual<typeof authApi>("@/lib/api/auth");
+vi.mock("@/features/auth/api", () => {
+  const actual = vi.importActual<typeof authApi>("@/features/auth/api");
   return { ...actual };
 });
 

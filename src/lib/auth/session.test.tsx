@@ -8,10 +8,10 @@ import {
   storeTenantSlug,
   type SessionStatus,
 } from "./session";
-import * as authApi from "@/lib/api/auth";
+import * as authApi from "@/features/auth/api";
 import { setAccessToken, getAccessToken } from "@/lib/api/client";
 
-vi.mock("@/lib/api/auth", () => ({
+vi.mock("@/features/auth/api", () => ({
   refreshTenant: vi.fn(),
   tenantMe: vi.fn(),
   logoutTenant: vi.fn(),
