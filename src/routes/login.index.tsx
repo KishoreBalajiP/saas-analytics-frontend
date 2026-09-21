@@ -17,7 +17,7 @@ export const Route = createFileRoute("/login/")({
   component: TenantLoginPage,
 });
 
-function TenantLoginPage() {
+export function TenantLoginPage() {
   const navigate = useNavigate();
   const { status, setSession, refetch } = useTenantSession();
   const [tenantSlug, setTenantSlug] = useState("");
@@ -139,6 +139,9 @@ function TenantLoginPage() {
               Forgot your password?
             </AppLink>
           </div>
+          <p className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account? Contact your workspace administrator for an invitation.
+          </p>
         </form>
       </CardContent>
     </Card>
