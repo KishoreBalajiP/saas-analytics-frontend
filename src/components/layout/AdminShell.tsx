@@ -26,22 +26,58 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminSession } from "@/lib/auth/session";
+import { Permissions, hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
-  { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/tenants", label: "Tenants", icon: Building2 },
-  { to: "/admin/admins", label: "Admins", icon: Shield },
-  { to: "/admin/roles", label: "Roles", icon: UserCog },
-  { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText },
-  { to: "/admin/access-logs", label: "Access Logs", icon: Activity },
-  { to: "/admin/compliance", label: "Compliance", icon: FileCheck },
-  { to: "/admin/support", label: "Support", icon: Headphones },
-  { to: "/admin/monitoring", label: "Monitoring", icon: Monitor },
+  {
+    to: "/admin/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    permission: Permissions.MONITORING_VIEW,
+  },
+  {
+    to: "/admin/tenants",
+    label: "Tenants",
+    icon: Building2,
+    permission: Permissions.IAM_TENANTS_VIEW,
+  },
+  { to: "/admin/admins", label: "Admins", icon: Shield, permission: Permissions.IAM_ADMINS_VIEW },
+  { to: "/admin/roles", label: "Roles", icon: UserCog, permission: Permissions.IAM_ROLES_VIEW },
+  {
+    to: "/admin/audit-logs",
+    label: "Audit Logs",
+    icon: ScrollText,
+    permission: Permissions.AUDIT_LOGS_VIEW,
+  },
+  {
+    to: "/admin/access-logs",
+    label: "Access Logs",
+    icon: Activity,
+    permission: Permissions.ACCESS_LOGS_VIEW,
+  },
+  {
+    to: "/admin/compliance",
+    label: "Compliance",
+    icon: FileCheck,
+    permission: Permissions.COMPLIANCE_VIEW,
+  },
+  {
+    to: "/admin/support",
+    label: "Support",
+    icon: Headphones,
+    permission: Permissions.SUPPORT_LOOKUP,
+  },
+  {
+    to: "/admin/monitoring",
+    label: "Monitoring",
+    icon: Monitor,
+    permission: Permissions.MONITORING_VIEW,
+  },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
-  const { status, me, signOut } = useAdminSession();
+  const { status, me, permissions, signOut } = useAdminSession();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -75,7 +111,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <span className="font-display text-sm font-semibold tracking-tight">Admin Portal</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Admin navigation">
-          {ADMIN_NAV.map((item) => {
+          {ADMIN_NAV.filter((item) => hasPermission(permissions, item.permission)).map((item) => {
             const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
             return (
               <AppLink

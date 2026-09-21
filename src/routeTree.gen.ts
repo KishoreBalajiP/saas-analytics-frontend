@@ -40,6 +40,7 @@ import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginForgotRouteImport } from './routes/login.forgot'
 import { Route as LoginResetRouteImport } from './routes/login.reset'
 import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
+import { Route as AdminTenantsTenantIdRouteImport } from './routes/admin.tenants.$tenantId'
 import { Route as AlertsAlertIdEditRouteImport } from './routes/alerts.$alertId.edit'
 import { Route as DashboardsDashboardIdEditRouteImport } from './routes/dashboards.$dashboardId.edit'
 import { Route as ReportsReportIdEditRouteImport } from './routes/reports.$reportId.edit'
@@ -199,6 +200,11 @@ const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
   path: '/$reportId',
   getParentRoute: () => ReportsRoute,
 } as any)
+const AdminTenantsTenantIdRoute = AdminTenantsTenantIdRouteImport.update({
+  id: '/$tenantId',
+  path: '/$tenantId',
+  getParentRoute: () => AdminTenantsRoute,
+} as any)
 const AlertsAlertIdEditRoute = AlertsAlertIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
@@ -239,7 +245,7 @@ export interface FileRoutesByFullPath {
   '/admin/monitoring': typeof AdminMonitoringRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
-  '/admin/tenants': typeof AdminTenantsRoute
+  '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
   '/alerts/$alertId/edit': typeof AlertsAlertIdEditRoute
   '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
   '/reports/$reportId/edit': typeof ReportsReportIdEditRoute
@@ -273,7 +280,7 @@ export interface FileRoutesByTo {
   '/admin/monitoring': typeof AdminMonitoringRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
-  '/admin/tenants': typeof AdminTenantsRoute
+  '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
@@ -282,6 +289,7 @@ export interface FileRoutesByTo {
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
   '/datasets': typeof DatasetsIndexRoute
   '/login': typeof LoginIndexRoute
+  '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
   '/alerts/$alertId/edit': typeof AlertsAlertIdEditRoute
   '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
   '/reports/$reportId/edit': typeof ReportsReportIdEditRoute
@@ -310,7 +318,7 @@ export interface FileRoutesById {
   '/admin/monitoring': typeof AdminMonitoringRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
-  '/admin/tenants': typeof AdminTenantsRoute
+  '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
@@ -319,6 +327,7 @@ export interface FileRoutesById {
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
   '/alerts/$alertId/edit': typeof AlertsAlertIdEditRoute
   '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
   '/reports/$reportId/edit': typeof ReportsReportIdEditRoute
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/datasets/'
     | '/login/'
+    | '/admin/tenants/$tenantId'
     | '/alerts/$alertId/edit'
     | '/dashboards/$dashboardId/edit'
     | '/reports/$reportId/edit'
@@ -391,6 +401,7 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/datasets'
     | '/login'
+    | '/admin/tenants/$tenantId'
     | '/alerts/$alertId/edit'
     | '/dashboards/$dashboardId/edit'
     | '/reports/$reportId/edit'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/datasets/'
     | '/login/'
+    | '/admin/tenants/$tenantId'
     | '/alerts/$alertId/edit'
     | '/dashboards/$dashboardId/edit'
     | '/reports/$reportId/edit'
@@ -455,7 +467,7 @@ export interface RootRouteChildren {
   AdminMonitoringRoute: typeof AdminMonitoringRoute
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSupportRoute: typeof AdminSupportRoute
-  AdminTenantsRoute: typeof AdminTenantsRoute
+  AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -677,6 +689,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsReportIdRouteImport
       parentRoute: typeof ReportsRoute
     }
+    '/admin/tenants/$tenantId': {
+      id: '/admin/tenants/$tenantId'
+      path: '/$tenantId'
+      fullPath: '/admin/tenants/$tenantId'
+      preLoaderRoute: typeof AdminTenantsTenantIdRouteImport
+      parentRoute: typeof AdminTenantsRoute
+    }
     '/alerts/$alertId/edit': {
       id: '/alerts/$alertId/edit'
       path: '/edit'
@@ -800,6 +819,18 @@ const ReportsRouteChildren: ReportsRouteChildren = {
 const ReportsRouteWithChildren =
   ReportsRoute._addFileChildren(ReportsRouteChildren)
 
+interface AdminTenantsRouteChildren {
+  AdminTenantsTenantIdRoute: typeof AdminTenantsTenantIdRoute
+}
+
+const AdminTenantsRouteChildren: AdminTenantsRouteChildren = {
+  AdminTenantsTenantIdRoute: AdminTenantsTenantIdRoute,
+}
+
+const AdminTenantsRouteWithChildren = AdminTenantsRoute._addFileChildren(
+  AdminTenantsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertsRoute: AlertsRouteWithChildren,
@@ -823,7 +854,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminMonitoringRoute: AdminMonitoringRoute,
   AdminRolesRoute: AdminRolesRoute,
   AdminSupportRoute: AdminSupportRoute,
-  AdminTenantsRoute: AdminTenantsRoute,
+  AdminTenantsRoute: AdminTenantsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
