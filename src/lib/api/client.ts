@@ -1,6 +1,13 @@
 import type { ApiResponse, FieldError, PaginationMeta, Paged } from "./types";
 
-const BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string) ?? "http://localhost:8080";
+const configuredBaseUrl = import.meta.env["VITE_API_BASE_URL"] as string | undefined;
+// Localhost is useful for development, but must never become a production
+// dependency when a deployment is missing its API configuration.
+const BASE_URL =
+  configuredBaseUrl ||
+  (import.meta.env.PROD && typeof window !== "undefined"
+    ? window.location.origin
+    : "http://localhost:8080");
 const PREFIX = (import.meta.env["VITE_API_PREFIX"] as string) ?? "/api/v1";
 
 export type Audience = "tenant" | "admin" | "public";
