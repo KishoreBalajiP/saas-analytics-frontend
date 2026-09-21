@@ -197,17 +197,25 @@ export interface ReportRun {
 
 export interface Report {
   _id: string;
+  description?: string;
   name: string;
   source: "widget" | "query";
-  sourceWidgetId?: string;
-  sourceQuery?: AnalyticsQueryParams;
+  dashboardId?: string | null;
+  widgetId?: string | null;
+  query?: AnalyticsQueryParams | null;
   format: "json" | "csv" | "xlsx";
-  status?: string;
+  status?: "draft" | "active" | "paused" | "archived" | string;
+  filters?: {
+    dateRange?: Record<string, unknown>;
+    filters?: QueryFilter[];
+    filtersOp?: "and" | "or";
+  };
   schedule?: {
     enabled?: boolean;
     cron?: string;
     timezone?: string;
-    recipients?: string[];
+    format?: "json" | "csv" | "xlsx";
+    recipients?: Array<{ type?: "user" | "external"; value: string }>;
   };
   nextRunAt?: string;
   runs?: ReportRun[];
@@ -215,12 +223,17 @@ export interface Report {
 
 export interface AlertRule {
   _id: string;
+  description?: string;
   name: string;
   datasetId: string;
-  condition: { field: string; op: FilterOp; value: unknown };
+  metric: string;
+  condition: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "between";
+  threshold: number;
+  thresholdHigh?: number | null;
   source: "widget" | "query";
-  sourceWidgetId?: string;
-  sourceQuery?: AnalyticsQueryParams;
+  dashboardId?: string | null;
+  widgetId?: string | null;
+  query?: AnalyticsQueryParams | null;
   schedule?: { cron?: string; timezone?: string };
   cooldownMinutes?: number;
   lastTriggeredAt?: string | null;

@@ -1,5 +1,5 @@
 import { request, requestPaged, type Query } from "@/lib/api/client";
-import type { AlertEvent, AlertRule, AnalyticsQueryParams, FilterOp } from "@/lib/api/types";
+import type { AlertEvent, AlertRule, AnalyticsQueryParams } from "@/lib/api/types";
 
 export function list(query: Query = {}) {
   return requestPaged<AlertRule>("/alerts", { query });
@@ -15,18 +15,23 @@ export function get(id: string) {
 
 export interface AlertInput {
   name: string;
-  datasetId: string;
-  condition: { field: string; op: FilterOp; value: unknown };
+  description?: string;
+  datasetId?: string;
+  metric: string;
+  condition: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "between";
+  threshold: number;
+  thresholdHigh?: number;
   source: "widget" | "query";
-  sourceWidgetId?: string;
-  sourceQuery?: AnalyticsQueryParams;
+  dashboardId?: string;
+  widgetId?: string;
+  query?: AnalyticsQueryParams;
   schedule?: { cron?: string; timezone?: string };
   cooldownMinutes?: number;
   enabled?: boolean;
   notification?: {
     channels?: Array<"email" | "in_app">;
-    recipients?: string[];
-    template?: string;
+    recipients?: Array<{ type?: "user" | "email"; value: string }>;
+    template?: unknown;
   };
 }
 

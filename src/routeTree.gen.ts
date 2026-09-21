@@ -32,13 +32,17 @@ import { Route as AdminMonitoringRouteImport } from './routes/admin.monitoring'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
+import { Route as AlertsAlertIdRouteImport } from './routes/alerts.$alertId'
 import { Route as DashboardsDashboardIdRouteImport } from './routes/dashboards.$dashboardId'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets.index'
 import { Route as DatasetsConnectorIdRouteImport } from './routes/datasets.$connectorId'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginForgotRouteImport } from './routes/login.forgot'
 import { Route as LoginResetRouteImport } from './routes/login.reset'
+import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
+import { Route as AlertsAlertIdEditRouteImport } from './routes/alerts.$alertId.edit'
 import { Route as DashboardsDashboardIdEditRouteImport } from './routes/dashboards.$dashboardId.edit'
+import { Route as ReportsReportIdEditRouteImport } from './routes/reports.$reportId.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -155,6 +159,11 @@ const AdminTenantsRoute = AdminTenantsRouteImport.update({
   path: '/admin/tenants',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AlertsAlertIdRoute = AlertsAlertIdRouteImport.update({
+  id: '/$alertId',
+  path: '/$alertId',
+  getParentRoute: () => AlertsRoute,
+} as any)
 const DashboardsDashboardIdRoute = DashboardsDashboardIdRouteImport.update({
   id: '/$dashboardId',
   path: '/$dashboardId',
@@ -185,16 +194,31 @@ const LoginResetRoute = LoginResetRouteImport.update({
   path: '/reset',
   getParentRoute: () => LoginRoute,
 } as any)
+const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
+  id: '/$reportId',
+  path: '/$reportId',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const AlertsAlertIdEditRoute = AlertsAlertIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => AlertsAlertIdRoute,
+} as any)
 const DashboardsDashboardIdEditRoute =
   DashboardsDashboardIdEditRouteImport.update({
     id: '/edit',
     path: '/edit',
     getParentRoute: () => DashboardsDashboardIdRoute,
   } as any)
+const ReportsReportIdEditRoute = ReportsReportIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => ReportsReportIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/alerts': typeof AlertsRoute
+  '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
@@ -204,7 +228,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
-  '/reports': typeof ReportsRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -216,17 +240,21 @@ export interface FileRoutesByFullPath {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
+  '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/alerts/$alertId/edit': typeof AlertsAlertIdEditRoute
   '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
+  '/reports/$reportId/edit': typeof ReportsReportIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/alerts': typeof AlertsRoute
+  '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
@@ -234,7 +262,7 @@ export interface FileRoutesByTo {
   '/embed': typeof EmbedRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
-  '/reports': typeof ReportsRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -246,18 +274,22 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
+  '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
   '/datasets': typeof DatasetsIndexRoute
   '/login': typeof LoginIndexRoute
+  '/alerts/$alertId/edit': typeof AlertsAlertIdEditRoute
   '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
+  '/reports/$reportId/edit': typeof ReportsReportIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/alerts': typeof AlertsRoute
+  '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
@@ -267,7 +299,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
-  '/reports': typeof ReportsRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -279,13 +311,17 @@ export interface FileRoutesById {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
+  '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/alerts/$alertId/edit': typeof AlertsAlertIdEditRoute
   '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
+  '/reports/$reportId/edit': typeof ReportsReportIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -313,13 +349,17 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
+    | '/reports/$reportId'
     | '/datasets/'
     | '/login/'
+    | '/alerts/$alertId/edit'
     | '/dashboards/$dashboardId/edit'
+    | '/reports/$reportId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -343,13 +383,17 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
+    | '/reports/$reportId'
     | '/datasets'
     | '/login'
+    | '/alerts/$alertId/edit'
     | '/dashboards/$dashboardId/edit'
+    | '/reports/$reportId/edit'
   id:
     | '__root__'
     | '/'
@@ -375,18 +419,22 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
+    | '/reports/$reportId'
     | '/datasets/'
     | '/login/'
+    | '/alerts/$alertId/edit'
     | '/dashboards/$dashboardId/edit'
+    | '/reports/$reportId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AlertsRoute: typeof AlertsRoute
+  AlertsRoute: typeof AlertsRouteWithChildren
   AnalyticsRoute: typeof AnalyticsRoute
   ApiKeysRoute: typeof ApiKeysRoute
   DashboardRoute: typeof DashboardRoute
@@ -396,7 +444,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
-  ReportsRoute: typeof ReportsRoute
+  ReportsRoute: typeof ReportsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   AdminAccessLogsRoute: typeof AdminAccessLogsRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
@@ -573,6 +621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTenantsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/alerts/$alertId': {
+      id: '/alerts/$alertId'
+      path: '/$alertId'
+      fullPath: '/alerts/$alertId'
+      preLoaderRoute: typeof AlertsAlertIdRouteImport
+      parentRoute: typeof AlertsRoute
+    }
     '/dashboards/$dashboardId': {
       id: '/dashboards/$dashboardId'
       path: '/$dashboardId'
@@ -615,6 +670,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginResetRouteImport
       parentRoute: typeof LoginRoute
     }
+    '/reports/$reportId': {
+      id: '/reports/$reportId'
+      path: '/$reportId'
+      fullPath: '/reports/$reportId'
+      preLoaderRoute: typeof ReportsReportIdRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/alerts/$alertId/edit': {
+      id: '/alerts/$alertId/edit'
+      path: '/edit'
+      fullPath: '/alerts/$alertId/edit'
+      preLoaderRoute: typeof AlertsAlertIdEditRouteImport
+      parentRoute: typeof AlertsAlertIdRoute
+    }
     '/dashboards/$dashboardId/edit': {
       id: '/dashboards/$dashboardId/edit'
       path: '/edit'
@@ -622,8 +691,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardsDashboardIdEditRouteImport
       parentRoute: typeof DashboardsDashboardIdRoute
     }
+    '/reports/$reportId/edit': {
+      id: '/reports/$reportId/edit'
+      path: '/edit'
+      fullPath: '/reports/$reportId/edit'
+      preLoaderRoute: typeof ReportsReportIdEditRouteImport
+      parentRoute: typeof ReportsReportIdRoute
+    }
   }
 }
+
+interface AlertsAlertIdRouteChildren {
+  AlertsAlertIdEditRoute: typeof AlertsAlertIdEditRoute
+}
+
+const AlertsAlertIdRouteChildren: AlertsAlertIdRouteChildren = {
+  AlertsAlertIdEditRoute: AlertsAlertIdEditRoute,
+}
+
+const AlertsAlertIdRouteWithChildren = AlertsAlertIdRoute._addFileChildren(
+  AlertsAlertIdRouteChildren,
+)
+
+interface AlertsRouteChildren {
+  AlertsAlertIdRoute: typeof AlertsAlertIdRouteWithChildren
+}
+
+const AlertsRouteChildren: AlertsRouteChildren = {
+  AlertsAlertIdRoute: AlertsAlertIdRouteWithChildren,
+}
+
+const AlertsRouteWithChildren =
+  AlertsRoute._addFileChildren(AlertsRouteChildren)
 
 interface DashboardsDashboardIdRouteChildren {
   DashboardsDashboardIdEditRoute: typeof DashboardsDashboardIdEditRoute
@@ -678,9 +777,32 @@ const LoginRouteChildren: LoginRouteChildren = {
 
 const LoginRouteWithChildren = LoginRoute._addFileChildren(LoginRouteChildren)
 
+interface ReportsReportIdRouteChildren {
+  ReportsReportIdEditRoute: typeof ReportsReportIdEditRoute
+}
+
+const ReportsReportIdRouteChildren: ReportsReportIdRouteChildren = {
+  ReportsReportIdEditRoute: ReportsReportIdEditRoute,
+}
+
+const ReportsReportIdRouteWithChildren = ReportsReportIdRoute._addFileChildren(
+  ReportsReportIdRouteChildren,
+)
+
+interface ReportsRouteChildren {
+  ReportsReportIdRoute: typeof ReportsReportIdRouteWithChildren
+}
+
+const ReportsRouteChildren: ReportsRouteChildren = {
+  ReportsReportIdRoute: ReportsReportIdRouteWithChildren,
+}
+
+const ReportsRouteWithChildren =
+  ReportsRoute._addFileChildren(ReportsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AlertsRoute: AlertsRoute,
+  AlertsRoute: AlertsRouteWithChildren,
   AnalyticsRoute: AnalyticsRoute,
   ApiKeysRoute: ApiKeysRoute,
   DashboardRoute: DashboardRoute,
@@ -690,7 +812,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
-  ReportsRoute: ReportsRoute,
+  ReportsRoute: ReportsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   AdminAccessLogsRoute: AdminAccessLogsRoute,
   AdminAdminsRoute: AdminAdminsRoute,

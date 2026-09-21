@@ -11,16 +11,21 @@ export function get(id: string) {
 
 export interface ReportInput {
   name: string;
+  description?: string;
   source: "widget" | "query";
-  sourceWidgetId?: string;
-  sourceQuery?: AnalyticsQueryParams;
+  dashboardId?: string;
+  widgetId?: string;
+  query?: AnalyticsQueryParams;
   format: "json" | "csv" | "xlsx";
+  filters?: Record<string, unknown>;
   schedule?: {
     enabled?: boolean;
     cron?: string;
     timezone?: string;
-    recipients?: string[];
+    format?: "json" | "csv" | "xlsx";
+    recipients?: Array<{ type?: "user" | "external"; value: string }>;
   };
+  status?: string;
 }
 
 export function create(body: ReportInput) {
@@ -31,7 +36,10 @@ export function update(id: string, body: Partial<ReportInput>) {
   return request<Report>(`/reports/${id}`, { method: "PATCH", body });
 }
 
-export function run(id: string, body: { format?: string; filters?: unknown } = {}) {
+export function run(
+  id: string,
+  body: { format?: "json" | "csv" | "xlsx"; filters?: Record<string, unknown> } = {},
+) {
   return request<{ accepted?: boolean; runId?: string; status?: string }>(`/reports/${id}/run`, {
     method: "POST",
     body,
