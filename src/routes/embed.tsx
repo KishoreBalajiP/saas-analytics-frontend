@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { TenantPortal } from "@/components/layout/TenantPortal";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ComingSoon } from "@/components/common/states";
+import { EmbedView } from "@/features/embed/components/EmbedView";
 
 export const Route = createFileRoute("/embed")({
   head: () => ({
@@ -15,10 +15,7 @@ export const Route = createFileRoute("/embed")({
         description="Generate tokens to embed dashboards and widgets in external sites."
         crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Embed" }]}
       />
-      <ComingSoon
-        title="Embed Token Management"
-        description="Create and manage public embed tokens for published dashboards and individual widgets."
-      />
+      <EmbedView />
     </TenantPortal>
   ),
 });

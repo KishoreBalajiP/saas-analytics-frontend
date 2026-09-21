@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { TenantPortal } from "@/components/layout/TenantPortal";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ComingSoon } from "@/components/common/states";
+import { ApiKeysView } from "@/features/api-keys/components/ApiKeysView";
 
 export const Route = createFileRoute("/api-keys")({
   head: () => ({
@@ -15,10 +15,7 @@ export const Route = createFileRoute("/api-keys")({
         description="Manage keys for external API access."
         crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "API Keys" }]}
       />
-      <ComingSoon
-        title="API Key Management"
-        description="Create, view, and revoke API keys with fine-grained scope control for the external API."
-      />
+      <ApiKeysView />
     </TenantPortal>
   ),
 });
