@@ -85,7 +85,11 @@ interface ErrorStateProps {
 /** Distinguishes 401 / 403 / 404 / 422 / 429 / 500 / 501 per the UX spec. */
 export function ErrorState({ error, onRetry, loginTo, resource }: ErrorStateProps) {
   const api = error instanceof ApiError ? error : null;
-  const status = api?.statusCode ?? 0;
+  const status =
+    api?.statusCode ??
+    (typeof error === "object" && error !== null && "statusCode" in error
+      ? Number((error as { statusCode?: number }).statusCode ?? 0)
+      : 0);
 
   if (status === 501) {
     return <ComingSoon title={resource ? `${resource}` : "Not implemented"} />;

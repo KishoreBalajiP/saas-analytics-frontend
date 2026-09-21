@@ -32,11 +32,13 @@ import { Route as AdminMonitoringRouteImport } from './routes/admin.monitoring'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
+import { Route as DashboardsDashboardIdRouteImport } from './routes/dashboards.$dashboardId'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets.index'
 import { Route as DatasetsConnectorIdRouteImport } from './routes/datasets.$connectorId'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginForgotRouteImport } from './routes/login.forgot'
 import { Route as LoginResetRouteImport } from './routes/login.reset'
+import { Route as DashboardsDashboardIdEditRouteImport } from './routes/dashboards.$dashboardId.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -153,6 +155,11 @@ const AdminTenantsRoute = AdminTenantsRouteImport.update({
   path: '/admin/tenants',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardsDashboardIdRoute = DashboardsDashboardIdRouteImport.update({
+  id: '/$dashboardId',
+  path: '/$dashboardId',
+  getParentRoute: () => DashboardsRoute,
+} as any)
 const DatasetsIndexRoute = DatasetsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -178,6 +185,12 @@ const LoginResetRoute = LoginResetRouteImport.update({
   path: '/reset',
   getParentRoute: () => LoginRoute,
 } as any)
+const DashboardsDashboardIdEditRoute =
+  DashboardsDashboardIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => DashboardsDashboardIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -185,7 +198,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
-  '/dashboards': typeof DashboardsRoute
+  '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/login': typeof LoginRouteWithChildren
@@ -203,11 +216,13 @@ export interface FileRoutesByFullPath {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -215,7 +230,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
-  '/dashboards': typeof DashboardsRoute
+  '/dashboards': typeof DashboardsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
@@ -231,11 +246,13 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/datasets': typeof DatasetsIndexRoute
   '/login': typeof LoginIndexRoute
+  '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -244,7 +261,7 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/dashboard': typeof DashboardRoute
-  '/dashboards': typeof DashboardsRoute
+  '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/login': typeof LoginRouteWithChildren
@@ -262,11 +279,13 @@ export interface FileRoutesById {
   '/admin/roles': typeof AdminRolesRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/dashboards/$dashboardId/edit': typeof DashboardsDashboardIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -294,11 +313,13 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
     | '/datasets/'
     | '/login/'
+    | '/dashboards/$dashboardId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -322,11 +343,13 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
     | '/datasets'
     | '/login'
+    | '/dashboards/$dashboardId/edit'
   id:
     | '__root__'
     | '/'
@@ -352,11 +375,13 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/support'
     | '/admin/tenants'
+    | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
     | '/login/forgot'
     | '/login/reset'
     | '/datasets/'
     | '/login/'
+    | '/dashboards/$dashboardId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -365,7 +390,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   ApiKeysRoute: typeof ApiKeysRoute
   DashboardRoute: typeof DashboardRoute
-  DashboardsRoute: typeof DashboardsRoute
+  DashboardsRoute: typeof DashboardsRouteWithChildren
   DatasetsRoute: typeof DatasetsRouteWithChildren
   EmbedRoute: typeof EmbedRoute
   LoginRoute: typeof LoginRouteWithChildren
@@ -548,6 +573,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTenantsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboards/$dashboardId': {
+      id: '/dashboards/$dashboardId'
+      path: '/$dashboardId'
+      fullPath: '/dashboards/$dashboardId'
+      preLoaderRoute: typeof DashboardsDashboardIdRouteImport
+      parentRoute: typeof DashboardsRoute
+    }
     '/datasets/': {
       id: '/datasets/'
       path: '/'
@@ -583,8 +615,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginResetRouteImport
       parentRoute: typeof LoginRoute
     }
+    '/dashboards/$dashboardId/edit': {
+      id: '/dashboards/$dashboardId/edit'
+      path: '/edit'
+      fullPath: '/dashboards/$dashboardId/edit'
+      preLoaderRoute: typeof DashboardsDashboardIdEditRouteImport
+      parentRoute: typeof DashboardsDashboardIdRoute
+    }
   }
 }
+
+interface DashboardsDashboardIdRouteChildren {
+  DashboardsDashboardIdEditRoute: typeof DashboardsDashboardIdEditRoute
+}
+
+const DashboardsDashboardIdRouteChildren: DashboardsDashboardIdRouteChildren = {
+  DashboardsDashboardIdEditRoute: DashboardsDashboardIdEditRoute,
+}
+
+const DashboardsDashboardIdRouteWithChildren =
+  DashboardsDashboardIdRoute._addFileChildren(
+    DashboardsDashboardIdRouteChildren,
+  )
+
+interface DashboardsRouteChildren {
+  DashboardsDashboardIdRoute: typeof DashboardsDashboardIdRouteWithChildren
+}
+
+const DashboardsRouteChildren: DashboardsRouteChildren = {
+  DashboardsDashboardIdRoute: DashboardsDashboardIdRouteWithChildren,
+}
+
+const DashboardsRouteWithChildren = DashboardsRoute._addFileChildren(
+  DashboardsRouteChildren,
+)
 
 interface DatasetsRouteChildren {
   DatasetsConnectorIdRoute: typeof DatasetsConnectorIdRoute
@@ -620,7 +684,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   ApiKeysRoute: ApiKeysRoute,
   DashboardRoute: DashboardRoute,
-  DashboardsRoute: DashboardsRoute,
+  DashboardsRoute: DashboardsRouteWithChildren,
   DatasetsRoute: DatasetsRouteWithChildren,
   EmbedRoute: EmbedRoute,
   LoginRoute: LoginRouteWithChildren,
