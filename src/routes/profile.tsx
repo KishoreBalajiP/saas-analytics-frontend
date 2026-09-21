@@ -16,10 +16,18 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
+  return (
+    <TenantPortal>
+      <ProfileContent />
+    </TenantPortal>
+  );
+}
+
+function ProfileContent() {
   const { me } = useTenantSession();
 
   return (
-    <TenantPortal>
+    <>
       <PageHeader
         title="Profile & Security"
         description="Manage your account settings, password, and multi-factor authentication."
@@ -57,6 +65,6 @@ function ProfilePage() {
           </CardContent>
         </Card>
       </div>
-    </TenantPortal>
+    </>
   );
 }

@@ -23,6 +23,14 @@ export const Route = createFileRoute("/analytics")({
 });
 
 function AnalyticsPage() {
+  return (
+    <TenantPortal>
+      <AnalyticsContent />
+    </TenantPortal>
+  );
+}
+
+function AnalyticsContent() {
   const { permissions } = useTenantSession();
   const canView = hasPermission(permissions, Permissions.ANALYTICS_VIEW);
   const canExport = hasPermission(permissions, Permissions.ANALYTICS_EXPORT);
@@ -43,11 +51,7 @@ function AnalyticsPage() {
   const connectors = (connectorsQuery.data?.data ?? []) as import("@/lib/api/types").Connector[];
 
   if (!canView) {
-    return (
-      <TenantPortal>
-        <ErrorState error={{ statusCode: 403 }} resource="Analytics" />
-      </TenantPortal>
-    );
+    return <ErrorState error={{ statusCode: 403 }} resource="Analytics" />;
   }
 
   async function handleRun(params: AnalyticsQueryParams) {
@@ -71,7 +75,7 @@ function AnalyticsPage() {
 
   if (connectorsQuery.isError) {
     return (
-      <TenantPortal>
+      <>
         <PageHeader
           title="Analytics"
           crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Analytics" }]}
@@ -81,7 +85,7 @@ function AnalyticsPage() {
           onRetry={() => connectorsQuery.refetch()}
           resource="Datasets"
         />
-      </TenantPortal>
+      </>
     );
   }
 
@@ -91,7 +95,7 @@ function AnalyticsPage() {
   }
 
   return (
-    <TenantPortal>
+    <>
       <PageHeader
         title="Analytics"
         description="Query and explore your data with filters, metrics, and grouping."
@@ -140,6 +144,6 @@ function AnalyticsPage() {
           </div>
         </div>
       </div>
-    </TenantPortal>
+    </>
   );
 }

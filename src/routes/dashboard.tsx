@@ -17,7 +17,15 @@ export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
 
-function DashboardPage() {
+export function DashboardPage() {
+  return (
+    <TenantPortal>
+      <DashboardContent />
+    </TenantPortal>
+  );
+}
+
+function DashboardContent() {
   const { me, tenantSlug } = useTenantSession();
 
   const quickLinks = [
@@ -39,7 +47,7 @@ function DashboardPage() {
   ];
 
   return (
-    <TenantPortal>
+    <>
       <PageHeader
         title={`Welcome, ${me?.profile?.name ?? me?.email ?? "user"}`}
         description={`Tenant: ${tenantSlug ?? me?.tenantId ?? "—"}`}
@@ -62,6 +70,6 @@ function DashboardPage() {
           </AppLink>
         ))}
       </div>
-    </TenantPortal>
+    </>
   );
 }
