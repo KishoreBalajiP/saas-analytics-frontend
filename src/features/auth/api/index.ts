@@ -99,6 +99,23 @@ export function resetPassword(tenantSlug: string, token: string, newPassword: st
   });
 }
 
+export function previewInvitation(token: string) {
+  return request<{
+    tenant: { id: string; name: string; slug: string };
+    invitedEmail: string;
+    role: string;
+    expiresAt: string;
+  }>("/invitations/preview", { audience: "public", query: { token } });
+}
+
+export function acceptInvitation(token: string, name: string, password: string) {
+  return request<{ ok: boolean; tenantId: string; email: string }>("/invitations/accept", {
+    method: "POST",
+    audience: "public",
+    body: { token, name, password },
+  });
+}
+
 export function enrollMfa() {
   return request<{ secret: string; otpauthUrl: string; qrCodeDataUrl: string }>(
     "/admin-auth/mfa/enroll",

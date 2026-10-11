@@ -38,6 +38,7 @@ import { Route as AlertsAlertIdRouteImport } from './routes/alerts.$alertId'
 import { Route as DashboardsDashboardIdRouteImport } from './routes/dashboards.$dashboardId'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets.index'
 import { Route as DatasetsConnectorIdRouteImport } from './routes/datasets.$connectorId'
+import { Route as InviteAcceptRouteImport } from './routes/invite.accept'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginForgotRouteImport } from './routes/login.forgot'
 import { Route as LoginResetRouteImport } from './routes/login.reset'
@@ -192,6 +193,11 @@ const DatasetsConnectorIdRoute = DatasetsConnectorIdRouteImport.update({
   path: '/$connectorId',
   getParentRoute: () => DatasetsRoute,
 } as any)
+const InviteAcceptRoute = InviteAcceptRouteImport.update({
+  id: '/invite/accept',
+  path: '/invite/accept',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginIndexRoute = LoginIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
+  '/invite/accept': typeof InviteAcceptRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
@@ -300,6 +307,7 @@ export interface FileRoutesByTo {
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
+  '/invite/accept': typeof InviteAcceptRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
   '/datasets/$connectorId': typeof DatasetsConnectorIdRoute
+  '/invite/accept': typeof InviteAcceptRoute
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
@@ -381,6 +390,7 @@ export interface FileRouteTypes {
     | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
+    | '/invite/accept'
     | '/login/forgot'
     | '/login/reset'
     | '/reports/$reportId'
@@ -418,6 +428,7 @@ export interface FileRouteTypes {
     | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
+    | '/invite/accept'
     | '/login/forgot'
     | '/login/reset'
     | '/reports/$reportId'
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
     | '/datasets/$connectorId'
+    | '/invite/accept'
     | '/login/forgot'
     | '/login/reset'
     | '/reports/$reportId'
@@ -494,6 +506,7 @@ export interface RootRouteChildren {
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
+  InviteAcceptRoute: typeof InviteAcceptRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -701,6 +714,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsConnectorIdRouteImport
       parentRoute: typeof DatasetsRoute
     }
+    '/invite/accept': {
+      id: '/invite/accept'
+      path: '/invite/accept'
+      fullPath: '/invite/accept'
+      preLoaderRoute: typeof InviteAcceptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login/': {
       id: '/login/'
       path: '/'
@@ -897,6 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRolesRoute: AdminRolesRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminTenantsRoute: AdminTenantsRouteWithChildren,
+  InviteAcceptRoute: InviteAcceptRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

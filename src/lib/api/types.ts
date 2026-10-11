@@ -309,6 +309,18 @@ export interface Tenant {
   updatedAt?: string;
 }
 
+export interface TenantInvitation {
+  _id: string;
+  tenantId: string;
+  invitedEmail: string;
+  roleName: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  expiresAt?: string;
+  acceptedAt?: string;
+  revokedAt?: string;
+  createdAt?: string;
+}
+
 export type AdminType = "super_admin" | "platform_admin" | "support_admin" | "readonly_admin";
 
 export interface PlatformAdmin {

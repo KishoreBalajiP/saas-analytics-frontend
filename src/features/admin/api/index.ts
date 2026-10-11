@@ -8,6 +8,7 @@ import type {
   PlatformAdmin,
   Role,
   Tenant,
+  TenantInvitation,
 } from "@/lib/api/types";
 
 const audience = "admin" as const;
@@ -23,11 +24,15 @@ export function getTenant(id: string) {
 }
 
 export function createTenant(body: {
-  slug: string;
+  slug?: string;
   name: string;
   owner: { email: string; name: string; password?: string };
 }) {
-  return request<Tenant>("/tenants", { method: "POST", audience, body });
+  return request<Tenant>("/tenants", {
+    method: "POST",
+    audience,
+    body: { ...body, initialize: true },
+  });
 }
 
 export function updateTenant(id: string, body: { name?: string; description?: string }) {
@@ -72,6 +77,37 @@ export function tenantStats(id: string) {
 
 export function tenantBilling(id: string) {
   return request<Record<string, unknown>>(`/tenants/${id}/billing`, { audience });
+}
+
+export function listTenantInvitations(id: string, query: Query = {}) {
+  return requestPaged<TenantInvitation>(`/tenants/${id}/invitations`, { audience, query });
+}
+
+export function createTenantInvitation(
+  id: string,
+  body: { email: string; name?: string; roleName?: string },
+) {
+  return request<TenantInvitation>(`/tenants/${id}/invitations`, {
+    method: "POST",
+    audience,
+    body,
+  });
+}
+
+export function resendTenantInvitation(id: string, invitationId: string) {
+  return request<TenantInvitation>(`/tenants/${id}/invitations/resend`, {
+    method: "POST",
+    audience,
+    body: { invitationId },
+  });
+}
+
+export function revokeTenantInvitation(id: string, invitationId: string) {
+  return request<TenantInvitation>(`/tenants/${id}/invitations/${invitationId}/revoke`, {
+    method: "POST",
+    audience,
+    body: {},
+  });
 }
 
 export function tenantSettings(id: string, group?: string) {

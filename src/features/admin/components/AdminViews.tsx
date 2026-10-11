@@ -248,23 +248,21 @@ function TenantTable({
 
 function TenantForm({ onClose }: { onClose: () => void }) {
   const client = useQueryClient();
-  const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [error, setError] = useState("");
   const mutation = useMutation({
     mutationFn: () => {
-      if (!slug.trim() || !name.trim() || !email.trim() || !ownerName.trim())
+      if (!name.trim() || !email.trim() || !ownerName.trim())
         throw new Error("Tenant and owner fields are required.");
       return adminApi.createTenant({
-        slug: slug.trim(),
         name: name.trim(),
         owner: { email: email.trim(), name: ownerName.trim() },
       });
     },
     onSuccess: () => {
-      toast.success("Tenant created");
+      toast.success("Tenant created and invitation sent");
       void client.invalidateQueries({ queryKey: ["admin", "tenants"] });
       onClose();
     },
@@ -283,10 +281,6 @@ function TenantForm({ onClose }: { onClose: () => void }) {
             mutation.mutate();
           }}
         >
-          <Label>
-            Slug
-            <Input value={slug} onChange={(event) => setSlug(event.target.value)} />
-          </Label>
           <Label>
             Name
             <Input value={name} onChange={(event) => setName(event.target.value)} />
@@ -370,7 +364,89 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
         loading={billing.isLoading}
         error={billing.error}
       />
+      <InvitationPanel tenantId={tenantId} canManage={canView} />
     </div>
+  );
+}
+
+function InvitationPanel({ tenantId, canManage }: { tenantId: string; canManage: boolean }) {
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: ["admin", "tenant", tenantId, "invitations"],
+    queryFn: () => adminApi.listTenantInvitations(tenantId, { page: 1, limit: 20 }),
+    enabled: canManage,
+  });
+  const resend = useMutation({
+    mutationFn: (invitationId: string) => adminApi.resendTenantInvitation(tenantId, invitationId),
+    onSuccess: () => {
+      toast.success("Invitation resent");
+      void client.invalidateQueries({ queryKey: ["admin", "tenant", tenantId, "invitations"] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Unable to resend invitation"),
+  });
+  const revoke = useMutation({
+    mutationFn: (invitationId: string) => adminApi.revokeTenantInvitation(tenantId, invitationId),
+    onSuccess: () => {
+      toast.success("Invitation revoked");
+      void client.invalidateQueries({ queryKey: ["admin", "tenant", tenantId, "invitations"] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Unable to revoke invitation"),
+  });
+  const rows = query.data?.data ?? [];
+  return (
+    <Card className="md:col-span-3">
+      <CardHeader>
+        <CardTitle>Invitations</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {query.isLoading ? (
+          <TableSkeleton rows={3} cols={4} />
+        ) : query.isError ? (
+          <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Invitations" />
+        ) : rows.length ? (
+          <div className="space-y-3">
+            {rows.map((invitation) => (
+              <div
+                key={invitation._id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-0 last:pb-0"
+              >
+                <div className="text-sm">
+                  <p className="font-medium">{invitation.invitedEmail}</p>
+                  <p className="text-muted-foreground">
+                    {invitation.roleName} · <span className="capitalize">{invitation.status}</span>
+                    {invitation.expiresAt ? ` · expires ${date(invitation.expiresAt)}` : ""}
+                  </p>
+                </div>
+                {invitation.status === "pending" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resend.mutate(invitation._id)}
+                      disabled={resend.isPending}
+                    >
+                      Resend
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => revoke.mutate(invitation._id)}
+                      disabled={revoke.isPending}
+                    >
+                      Revoke
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No invitations.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
