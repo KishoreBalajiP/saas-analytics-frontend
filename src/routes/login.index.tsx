@@ -140,7 +140,10 @@ export function TenantLoginPage() {
             </AppLink>
           </div>
           <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account? Contact your workspace administrator for an invitation.
+            Need access?{" "}
+            <AppLink to="/request-access" className="font-medium text-primary hover:underline">
+              Request workspace access
+            </AppLink>
           </p>
         </form>
       </CardContent>

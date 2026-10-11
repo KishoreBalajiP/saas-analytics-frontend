@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Analivo</title>
+  <rect width="64" height="64" rx="16" fill="#0f766e"/>
+  <path d="M16 43 24 21h7l8 22h-6l-1.7-5.2H22.7L21 43h-5Zm8.4-10h5.4L27.1 25l-2.7 8Z" fill="#fff"/>
+  <path d="M42 21h6v22h-6z" fill="#99f6e4"/>
+</svg>

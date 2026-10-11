@@ -20,7 +20,9 @@ import { Route as EmbedRouteImport } from './routes/embed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as RequestAccessRouteImport } from './routes/request-access'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AdminAccessLogsRouteImport } from './routes/admin.access-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
@@ -100,9 +102,19 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestAccessRoute = RequestAccessRouteImport.update({
+  id: '/request-access',
+  path: '/request-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -234,7 +246,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
+  '/request-access': typeof RequestAccessRoute
   '/settings': typeof SettingsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -269,7 +283,9 @@ export interface FileRoutesByTo {
   '/embed': typeof EmbedRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
+  '/request-access': typeof RequestAccessRoute
   '/settings': typeof SettingsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -307,7 +323,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
+  '/request-access': typeof RequestAccessRoute
   '/settings': typeof SettingsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -346,7 +364,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/profile'
+    | '/register'
     | '/reports'
+    | '/request-access'
     | '/settings'
     | '/admin/access-logs'
     | '/admin/admins'
@@ -381,7 +401,9 @@ export interface FileRouteTypes {
     | '/embed'
     | '/notifications'
     | '/profile'
+    | '/register'
     | '/reports'
+    | '/request-access'
     | '/settings'
     | '/admin/access-logs'
     | '/admin/admins'
@@ -418,7 +440,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/profile'
+    | '/register'
     | '/reports'
+    | '/request-access'
     | '/settings'
     | '/admin/access-logs'
     | '/admin/admins'
@@ -456,7 +480,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
+  RegisterRoute: typeof RegisterRoute
   ReportsRoute: typeof ReportsRouteWithChildren
+  RequestAccessRoute: typeof RequestAccessRoute
   SettingsRoute: typeof SettingsRoute
   AdminAccessLogsRoute: typeof AdminAccessLogsRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
@@ -549,11 +575,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports': {
       id: '/reports'
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-access': {
+      id: '/request-access'
+      path: '/request-access'
+      fullPath: '/request-access'
+      preLoaderRoute: typeof RequestAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -843,7 +883,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
+  RegisterRoute: RegisterRoute,
   ReportsRoute: ReportsRouteWithChildren,
+  RequestAccessRoute: RequestAccessRoute,
   SettingsRoute: SettingsRoute,
   AdminAccessLogsRoute: AdminAccessLogsRoute,
   AdminAdminsRoute: AdminAdminsRoute,

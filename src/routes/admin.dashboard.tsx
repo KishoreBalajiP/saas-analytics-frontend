@@ -6,7 +6,7 @@ import { AdminOverview } from "@/features/admin/components/AdminViews";
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({
     meta: [
-      { title: "Admin Dashboard — Analytics Console" },
+      { title: "Admin Dashboard - Analivo" },
       { name: "description", content: "Platform administration overview." },
     ],
   }),

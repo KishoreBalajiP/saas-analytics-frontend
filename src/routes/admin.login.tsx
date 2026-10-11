@@ -16,7 +16,7 @@ import { AdminSessionProvider, useAdminSession } from "@/lib/auth/session";
 export const Route = createFileRoute("/admin/login")({
   head: () => ({
     meta: [
-      { title: "Admin Sign In — Analytics Console" },
+      { title: "Admin Sign In - Analivo" },
       { name: "description", content: "Sign in to the admin portal." },
     ],
   }),

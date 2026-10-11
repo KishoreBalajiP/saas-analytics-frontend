@@ -18,6 +18,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import { AppLink } from "@/components/common/AppLink";
+import { Brand } from "@/components/common/Brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,10 +86,7 @@ export function TenantShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
-          <BarChart3 className="h-5 w-5 text-sidebar-primary" />
-          <span className="font-display text-sm font-semibold tracking-tight">
-            Analytics Console
-          </span>
+          <Brand compact />
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Main navigation">
           {NAV.map((item) => {
@@ -156,9 +154,6 @@ export function TenantShell({ children }: { children: ReactNode }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <AppLink to="/profile">Profile & security</AppLink>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <AppLink to="/admin/login">Admin portal</AppLink>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

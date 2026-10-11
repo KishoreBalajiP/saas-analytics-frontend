@@ -78,10 +78,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Analytics Console" },
+      { title: "Analivo - Analytics Platform" },
       {
         name: "description",
-        content: "Multi-tenant analytics console for datasets, dashboards, reports and alerts.",
+        content:
+          "Bring your business data together, explore analytics, and share insights through dashboards and reports.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -97,7 +98,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/analivo-mark.svg", type: "image/svg+xml" },
+      { name: "theme-color", content: "#0f766e" },
     ],
   }),
   shellComponent: RootShell,
