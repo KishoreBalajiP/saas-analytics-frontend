@@ -30,7 +30,7 @@ function ProfileContent() {
     <>
       <PageHeader
         title="Profile & Security"
-        description="Manage your account settings, password, and multi-factor authentication."
+        description="Manage your account settings and password. Tenant-user MFA is not currently available."
         crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Profile" }]}
       />
 
@@ -49,19 +49,19 @@ function ProfileContent() {
               <span className="font-medium">{me?.roles?.join(", ") ?? "—"}</span>
             </div>
             <div>
-              <span className="text-muted-foreground">MFA:</span>{" "}
-              <span className="font-medium">{me?.mfaEnabled ? "Enabled" : "Not enabled"}</span>
+              <span className="text-muted-foreground">Tenant-user MFA:</span>{" "}
+              <span className="font-medium">Not currently available</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle className="text-base">Password & MFA</CardTitle>
+            <CardTitle className="text-base">Password security</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Profile editing, password change, and MFA enrollment will be available in a future
-            release.
+            Profile editing and password change will be available in a future release. TOTP MFA
+            currently applies to platform administrator accounts only.
           </CardContent>
         </Card>
       </div>

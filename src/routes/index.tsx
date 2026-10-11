@@ -225,7 +225,7 @@ function PublicHome() {
             <SecurityItem
               icon={Check}
               title="Secure account flows"
-              text="Protected sessions, password recovery, and optional multi-factor authentication support safer access."
+              text="Protected sessions and password recovery support safer access. TOTP MFA is available for platform administrators; tenant-user MFA is not yet available."
             />
           </div>
         </section>

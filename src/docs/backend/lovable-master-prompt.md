@@ -125,7 +125,7 @@ All requests that mutate state **must** include `X-Idempotency-Key: <uuid>` for 
   /alerts                       → list + create
   /alerts/:id                   → detail + events + evaluate
   /notifications                 → inbox
-  /profile                      → self + MFA
+  /profile                      → self + password security (tenant-user MFA not available)
   /api-keys                     → list + create (show secret once!)
   /api-keys/:id                 → detail + revoke
   /embed                        → token list + create (for published dashboards only)
@@ -159,9 +159,10 @@ All requests that mutate state **must** include `X-Idempotency-Key: <uuid>` for 
 - On submit, read the **tenant slug** from a "subdomain input" at the top of the page (or a tenant switcher) and pass as `X-Tenant-Id` header.
 - On success, store `accessToken` in memory only. Redirect to `/dashboard`.
 
-### MFA flow
+### MFA flow (admin-only today)
 
-- If `mfaRequired` returned from `/auth/login`, show a second screen asking for the 6-digit code, re-submit with `mfaToken`.
+- If `mfaRequired` is returned from `/admin-auth/login`, show a second screen asking for the 6-digit code and re-submit with `mfaToken`.
+- Tenant-user MFA is not implemented; do not show enrollment or claim it is available in tenant-user settings.
 
 ### Password reset
 
@@ -253,7 +254,7 @@ All requests that mutate state **must** include `X-Idempotency-Key: <uuid>` for 
 ### Profile (`/profile`)
 
 - Edit name, timezone, locale.
-- "Enroll MFA" if `mfaEnabled === false`: shows QR code + secret.
+- Tenant-user MFA enrollment is not available. Admin TOTP enrollment is provided only through the admin security flow.
 
 ### API key management (`/api-keys`)
 
