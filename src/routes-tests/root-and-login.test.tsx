@@ -44,6 +44,11 @@ describe("public homepage", () => {
   it("renders immediately without a session restoration screen", () => {
     renderWithQuery(<HomePage />);
     expect(screen.getByRole("heading", { name: /turn your data into decisions/i })).toBeVisible();
+    expect(
+      screen
+        .getAllByRole("link", { name: /get started/i })
+        .every((link) => link.getAttribute("href") === "/register"),
+    ).toBe(true);
     expect(screen.queryByText(/restoring your session/i)).not.toBeInTheDocument();
   });
 
@@ -56,9 +61,12 @@ describe("public homepage", () => {
 });
 
 describe("tenant login entry", () => {
-  it("points visitors without access to the real invitation-only path", () => {
+  it("keeps existing sign-in available and points new visitors to registration", () => {
     renderWithQuery(<TenantLoginPage />);
-    expect(screen.getByRole("link", { name: /request workspace access/i })).toBeVisible();
+    expect(screen.getByRole("link", { name: /create a workspace/i })).toHaveAttribute(
+      "href",
+      "/register",
+    );
     expect(screen.queryByText(/admin sign in/i)).not.toBeInTheDocument();
   });
 });

@@ -61,10 +61,12 @@ export function previewFile(connectorId: string, file: File) {
 export function syncFile(connectorId: string, file: File) {
   const formData = new FormData();
   formData.append("file", file);
-  return request<{ accepted: boolean; jobType?: string; filename?: string }>(
-    `/connectors/${connectorId}/sync`,
-    { method: "POST", formData },
-  );
+  return request<{
+    accepted: boolean;
+    jobType?: string;
+    filename?: string;
+    alreadyQueued?: boolean;
+  }>(`/connectors/${connectorId}/sync`, { method: "POST", formData });
 }
 
 export function syncMongoDB(connectorId: string) {

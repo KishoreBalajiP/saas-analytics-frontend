@@ -353,6 +353,8 @@ Mounted under `/connectors`. All routes require **Bearer + `connectors.<action>`
   "fieldMapping": { "...": "..." },
   "webhookToken": "whk_...",   // webhook type only
   "lastSyncedAt": "...",
+  "syncStatus": "idle" | "queued" | "running" | "succeeded" | "failed",
+  "syncRequestedAt": "...",
   "lastError": null,
   "errorCount": 0,
   "createdAt": "...",

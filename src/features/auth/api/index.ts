@@ -99,6 +99,35 @@ export function resetPassword(tenantSlug: string, token: string, newPassword: st
   });
 }
 
+export function registerWorkspace(input: {
+  fullName: string;
+  email: string;
+  password: string;
+  workspaceName: string;
+  workspaceSlug?: string;
+}) {
+  return request<{
+    ok: boolean;
+    email: string;
+    verificationSent: boolean;
+    tenant: { id: string; name: string; slug: string; status: string; onboardingStatus: string };
+    owner: { id: string; name: string };
+  }>("/auth/register", { method: "POST", audience: "public", body: input });
+}
+
+export function verifyEmail(token: string) {
+  return request<{
+    ok: boolean;
+    verified: boolean;
+    email: string;
+    tenant: { id: string; name: string; slug: string; status: string; onboardingStatus: string };
+  }>("/auth/verify-email", {
+    method: "POST",
+    audience: "public",
+    body: { token },
+  });
+}
+
 export function previewInvitation(token: string) {
   return request<{
     tenant: { id: string; name: string; slug: string };
@@ -114,6 +143,14 @@ export function acceptInvitation(token: string, name: string, password: string) 
     audience: "public",
     body: { token, name, password },
   });
+}
+
+export function inviteTenantMember(input: { email: string; name?: string; roleName?: string }) {
+  return request<{
+    invitation: { _id: string; invitedEmail: string; roleName: string; status: string };
+    delivered: boolean;
+    alreadyPending: boolean;
+  }>("/invitations", { method: "POST", audience: "tenant", body: input });
 }
 
 export function enrollMfa() {

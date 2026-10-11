@@ -78,6 +78,8 @@ export interface Connector {
   fieldMapping?: Record<string, string>;
   webhookToken?: string;
   lastSyncedAt?: string | null;
+  syncStatus?: "idle" | "queued" | "running" | "succeeded" | "failed";
+  syncRequestedAt?: string | null;
   lastError?: string | null;
   errorCount?: number;
   createdAt?: string;

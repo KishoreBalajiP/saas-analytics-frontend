@@ -19,6 +19,7 @@ import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as EmbedRouteImport } from './routes/embed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -96,6 +97,11 @@ const LoginRoute = LoginRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/embed': typeof EmbedRoute
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   '/dashboards': typeof DashboardsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/notifications': typeof NotificationsRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/embed': typeof EmbedRoute
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/embed'
     | '/login'
     | '/notifications'
+    | '/onboarding'
     | '/profile'
     | '/register'
     | '/reports'
@@ -410,6 +420,7 @@ export interface FileRouteTypes {
     | '/dashboards'
     | '/embed'
     | '/notifications'
+    | '/onboarding'
     | '/profile'
     | '/register'
     | '/reports'
@@ -450,6 +461,7 @@ export interface FileRouteTypes {
     | '/embed'
     | '/login'
     | '/notifications'
+    | '/onboarding'
     | '/profile'
     | '/register'
     | '/reports'
@@ -491,6 +503,7 @@ export interface RootRouteChildren {
   EmbedRoute: typeof EmbedRoute
   LoginRoute: typeof LoginRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
+  OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   ReportsRoute: typeof ReportsRouteWithChildren
@@ -579,6 +592,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -902,6 +922,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmbedRoute: EmbedRoute,
   LoginRoute: LoginRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
+  OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   ReportsRoute: ReportsRouteWithChildren,

@@ -52,7 +52,7 @@ function PublicHome() {
     { icon: Database, name: "MongoDB" },
     { icon: BellRing, name: "Webhooks" },
   ];
-  const primaryPath = status === "authenticated" ? "/dashboard" : "/request-access";
+  const primaryPath = status === "authenticated" ? "/dashboard" : "/register";
   const primaryLabel = status === "authenticated" ? "Open dashboard" : "Get started";
 
   return (
@@ -119,7 +119,8 @@ function PublicHome() {
               </Button>
             </div>
             <p className="mt-5 text-sm text-muted-foreground">
-              Invitation-only workspaces keep access intentional and secure.
+              Create your workspace in minutes, connect your first dataset, and turn raw data into
+              decisions.
             </p>
           </div>
           <DashboardPreview />
@@ -274,8 +275,8 @@ function PublicHome() {
               <AppLink to="/login" className="hover:text-foreground">
                 Sign in
               </AppLink>
-              <AppLink to="/request-access" className="hover:text-foreground">
-                Request access
+              <AppLink to="/register" className="hover:text-foreground">
+                Create workspace
               </AppLink>
             </div>
           </div>

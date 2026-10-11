@@ -3,13 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useTenantSession } from "@/lib/auth/session";
 import { DashboardPage } from "@/routes/dashboard";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const setupApi = vi.hoisted(() => ({ connectorsList: vi.fn(), dashboardsList: vi.fn() }));
+
+vi.mock("@/features/datasets/api", () => ({
+  list: (...args: unknown[]) => setupApi.connectorsList(...args),
+}));
+vi.mock("@/features/dashboards/api", () => ({
+  list: (...args: unknown[]) => setupApi.dashboardsList(...args),
+}));
 
 const refreshTenant = vi.fn();
 const tenantMe = vi.fn();
 const logoutTenant = vi.fn();
 
 vi.mock("@/components/common/AppLink", () => ({
-  AppLink: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AppLink: ({ children, to }: { children: React.ReactNode; to?: string }) => (
+    <a href={to}>{children}</a>
+  ),
 }));
 
 vi.mock("@/components/layout/PageHeader", () => ({
@@ -41,6 +53,14 @@ vi.mock("@/features/auth/api", () => ({
 describe("DashboardPage provider composition", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setupApi.connectorsList.mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 100, total: 0, pages: 0 },
+    });
+    setupApi.dashboardsList.mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 100, total: 0, pages: 0 },
+    });
     refreshTenant.mockResolvedValue({ accessToken: "token" });
     tenantMe.mockResolvedValue({
       id: "user-1",
@@ -52,18 +72,55 @@ describe("DashboardPage provider composition", () => {
   });
 
   it("renders session-dependent dashboard content under TenantPortal", async () => {
-    render(<DashboardPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DashboardPage />
+      </QueryClientProvider>,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Welcome, user@example.test" }),
     ).toBeVisible();
     expect(screen.getByText("Tenant: tenant-a")).toBeVisible();
+    expect(await screen.findByText("Finish your workspace setup")).toBeVisible();
+  });
+
+  it("distinguishes a completed setup using tenant connector and dashboard records", async () => {
+    setupApi.connectorsList.mockResolvedValueOnce({
+      data: [
+        {
+          _id: "connector-1",
+          type: "csv",
+          name: "Orders",
+          status: "active",
+          lastSyncedAt: "2026-10-11T12:00:00.000Z",
+        },
+      ],
+      meta: { page: 1, limit: 100, total: 1, pages: 1 },
+    });
+    setupApi.dashboardsList.mockResolvedValueOnce({
+      data: [{ _id: "dashboard-1", name: "Overview", status: "draft" }],
+      meta: { page: 1, limit: 100, total: 1, pages: 1 },
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DashboardPage />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Workspace setup complete")).toBeVisible();
+    expect(screen.getByRole("link", { name: /review setup/i })).toBeVisible();
   });
 
   it("keeps unauthenticated state available to the existing tenant shell guard", async () => {
     refreshTenant.mockRejectedValueOnce(new Error("not authenticated"));
 
-    render(<DashboardPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DashboardPage />
+      </QueryClientProvider>,
+    );
 
     await waitFor(() => expect(refreshTenant).toHaveBeenCalled());
     expect(await screen.findByTestId("tenant-shell-status")).toHaveTextContent("anonymous");

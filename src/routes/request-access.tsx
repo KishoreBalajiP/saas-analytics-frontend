@@ -7,6 +7,7 @@ export const Route = createFileRoute("/request-access")({
     <AccessPage
       title="Request workspace access"
       description="Access is provisioned by each workspace administrator so tenant membership and permissions stay controlled."
+      message="Ask your workspace owner to send you a single-use invitation. If you are creating a new workspace, register instead."
     />
   ),
 });

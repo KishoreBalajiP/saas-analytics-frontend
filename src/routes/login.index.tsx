@@ -140,9 +140,9 @@ export function TenantLoginPage() {
             </AppLink>
           </div>
           <p className="text-center text-sm text-muted-foreground">
-            Need access?{" "}
-            <AppLink to="/request-access" className="font-medium text-primary hover:underline">
-              Request workspace access
+            New to Analivo?{" "}
+            <AppLink to="/register" className="font-medium text-primary hover:underline">
+              Create a workspace
             </AppLink>
           </p>
         </form>
