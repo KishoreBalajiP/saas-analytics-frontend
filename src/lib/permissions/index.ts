@@ -153,6 +153,18 @@ export const Permissions = {
 
   // Monitoring
   MONITORING_VIEW: perm("monitoring", "view"),
+
+  // Phase 6 - Plans, Billing, Subscriptions and Entitlements
+  IAM_SUBSCRIPTIONS_VIEW: perm("iam.subscriptions", "view"),
+  IAM_SUBSCRIPTIONS_UPDATE: perm("iam.subscriptions", "update"),
+  IAM_ENTITLEMENTS_VIEW: perm("iam.entitlements", "view"),
+  BILLING_PLANS_VIEW: perm("billing.plans", "view"),
+  BILLING_PLANS_CREATE: perm("billing.plans", "create"),
+  BILLING_PLANS_UPDATE: perm("billing.plans", "update"),
+  BILLING_PLANS_ARCHIVE: perm("billing.plans", "archive"),
+  BILLING_SUBSCRIPTIONS_VIEW: perm("billing.subscriptions", "view"),
+  BILLING_SUBSCRIPTIONS_OVERRIDE: perm("billing.subscriptions", "override"),
+  BILLING_ENTITLEMENTS_OVERRIDE: perm("billing.entitlements", "override"),
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

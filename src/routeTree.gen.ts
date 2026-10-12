@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApiKeysRouteImport } from './routes/api-keys'
+import { Route as BillingRouteImport } from './routes/billing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DashboardsRouteImport } from './routes/dashboards'
 import { Route as DatasetsRouteImport } from './routes/datasets'
@@ -30,9 +31,12 @@ import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminComplianceRouteImport } from './routes/admin.compliance'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminEntitlementsRouteImport } from './routes/admin.entitlements'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminMonitoringRouteImport } from './routes/admin.monitoring'
+import { Route as AdminPlansRouteImport } from './routes/admin.plans'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AlertsAlertIdRouteImport } from './routes/alerts.$alertId'
@@ -67,6 +71,11 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
 const ApiKeysRoute = ApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -154,6 +163,11 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
   path: '/admin/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminEntitlementsRoute = AdminEntitlementsRouteImport.update({
+  id: '/admin/entitlements',
+  path: '/admin/entitlements',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
@@ -164,9 +178,19 @@ const AdminMonitoringRoute = AdminMonitoringRouteImport.update({
   path: '/admin/monitoring',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPlansRoute = AdminPlansRouteImport.update({
+  id: '/admin/plans',
+  path: '/admin/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRolesRoute = AdminRolesRouteImport.update({
   id: '/admin/roles',
   path: '/admin/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/admin/subscriptions',
+  path: '/admin/subscriptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminSupportRoute = AdminSupportRouteImport.update({
@@ -251,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
+  '/billing': typeof BillingRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
@@ -268,9 +293,12 @@ export interface FileRoutesByFullPath {
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/entitlements': typeof AdminEntitlementsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/monitoring': typeof AdminMonitoringRoute
+  '/admin/plans': typeof AdminPlansRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
@@ -292,6 +320,7 @@ export interface FileRoutesByTo {
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
+  '/billing': typeof BillingRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/embed': typeof EmbedRoute
@@ -307,9 +336,12 @@ export interface FileRoutesByTo {
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/entitlements': typeof AdminEntitlementsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/monitoring': typeof AdminMonitoringRoute
+  '/admin/plans': typeof AdminPlansRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
@@ -332,6 +364,7 @@ export interface FileRoutesById {
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
+  '/billing': typeof BillingRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
@@ -349,9 +382,12 @@ export interface FileRoutesById {
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/entitlements': typeof AdminEntitlementsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/monitoring': typeof AdminMonitoringRoute
+  '/admin/plans': typeof AdminPlansRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
@@ -375,6 +411,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/analytics'
     | '/api-keys'
+    | '/billing'
     | '/dashboard'
     | '/dashboards'
     | '/datasets'
@@ -392,9 +429,12 @@ export interface FileRouteTypes {
     | '/admin/audit-logs'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/entitlements'
     | '/admin/login'
     | '/admin/monitoring'
+    | '/admin/plans'
     | '/admin/roles'
+    | '/admin/subscriptions'
     | '/admin/support'
     | '/admin/tenants'
     | '/alerts/$alertId'
@@ -416,6 +456,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/analytics'
     | '/api-keys'
+    | '/billing'
     | '/dashboard'
     | '/dashboards'
     | '/embed'
@@ -431,9 +472,12 @@ export interface FileRouteTypes {
     | '/admin/audit-logs'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/entitlements'
     | '/admin/login'
     | '/admin/monitoring'
+    | '/admin/plans'
     | '/admin/roles'
+    | '/admin/subscriptions'
     | '/admin/support'
     | '/admin/tenants'
     | '/alerts/$alertId'
@@ -455,6 +499,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/analytics'
     | '/api-keys'
+    | '/billing'
     | '/dashboard'
     | '/dashboards'
     | '/datasets'
@@ -472,9 +517,12 @@ export interface FileRouteTypes {
     | '/admin/audit-logs'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/entitlements'
     | '/admin/login'
     | '/admin/monitoring'
+    | '/admin/plans'
     | '/admin/roles'
+    | '/admin/subscriptions'
     | '/admin/support'
     | '/admin/tenants'
     | '/alerts/$alertId'
@@ -497,6 +545,7 @@ export interface RootRouteChildren {
   AlertsRoute: typeof AlertsRouteWithChildren
   AnalyticsRoute: typeof AnalyticsRoute
   ApiKeysRoute: typeof ApiKeysRoute
+  BillingRoute: typeof BillingRoute
   DashboardRoute: typeof DashboardRoute
   DashboardsRoute: typeof DashboardsRouteWithChildren
   DatasetsRoute: typeof DatasetsRouteWithChildren
@@ -514,9 +563,12 @@ export interface RootRouteChildren {
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminComplianceRoute: typeof AdminComplianceRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminEntitlementsRoute: typeof AdminEntitlementsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMonitoringRoute: typeof AdminMonitoringRoute
+  AdminPlansRoute: typeof AdminPlansRoute
   AdminRolesRoute: typeof AdminRolesRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
   InviteAcceptRoute: typeof InviteAcceptRoute
@@ -550,6 +602,13 @@ declare module '@tanstack/react-router' {
       path: '/api-keys'
       fullPath: '/api-keys'
       preLoaderRoute: typeof ApiKeysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -671,6 +730,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/entitlements': {
+      id: '/admin/entitlements'
+      path: '/admin/entitlements'
+      fullPath: '/admin/entitlements'
+      preLoaderRoute: typeof AdminEntitlementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
@@ -685,11 +751,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMonitoringRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/plans': {
+      id: '/admin/plans'
+      path: '/admin/plans'
+      fullPath: '/admin/plans'
+      preLoaderRoute: typeof AdminPlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/roles': {
       id: '/admin/roles'
       path: '/admin/roles'
       fullPath: '/admin/roles'
       preLoaderRoute: typeof AdminRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/admin/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/support': {
@@ -916,6 +996,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlertsRoute: AlertsRouteWithChildren,
   AnalyticsRoute: AnalyticsRoute,
   ApiKeysRoute: ApiKeysRoute,
+  BillingRoute: BillingRoute,
   DashboardRoute: DashboardRoute,
   DashboardsRoute: DashboardsRouteWithChildren,
   DatasetsRoute: DatasetsRouteWithChildren,
@@ -933,9 +1014,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminComplianceRoute: AdminComplianceRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminEntitlementsRoute: AdminEntitlementsRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminMonitoringRoute: AdminMonitoringRoute,
+  AdminPlansRoute: AdminPlansRoute,
   AdminRolesRoute: AdminRolesRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminTenantsRoute: AdminTenantsRouteWithChildren,
   InviteAcceptRoute: InviteAcceptRoute,

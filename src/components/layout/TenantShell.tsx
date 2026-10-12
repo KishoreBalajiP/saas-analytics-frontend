@@ -4,6 +4,7 @@ import {
   Activity,
   BarChart3,
   Bell,
+  CreditCard,
   Database,
   FileText,
   Key,
@@ -44,6 +45,7 @@ const NAV = [
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/api-keys", label: "API keys", icon: Key },
   { to: "/embed", label: "Embed", icon: MonitorSmartphone },
+  { to: "/billing", label: "Subscription", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

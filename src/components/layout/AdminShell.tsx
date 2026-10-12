@@ -1,6 +1,7 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
+  BadgeDollarSign,
   Building2,
   FileCheck,
   Headphones,
@@ -44,6 +45,24 @@ const ADMIN_NAV = [
   },
   { to: "/admin/admins", label: "Admins", icon: Shield, permission: Permissions.IAM_ADMINS_VIEW },
   { to: "/admin/roles", label: "Roles", icon: UserCog, permission: Permissions.IAM_ROLES_VIEW },
+  {
+    to: "/admin/plans",
+    label: "Plans",
+    icon: BadgeDollarSign,
+    permission: Permissions.BILLING_PLANS_VIEW,
+  },
+  {
+    to: "/admin/subscriptions",
+    label: "Subscriptions",
+    icon: BadgeDollarSign,
+    permission: Permissions.BILLING_SUBSCRIPTIONS_VIEW,
+  },
+  {
+    to: "/admin/entitlements",
+    label: "Entitlements",
+    icon: BadgeDollarSign,
+    permission: Permissions.BILLING_ENTITLEMENTS_OVERRIDE,
+  },
   {
     to: "/admin/audit-logs",
     label: "Audit Logs",
