@@ -186,6 +186,64 @@ export function adminCheckout(tenantId: string, body: { planId: string }) {
   });
 }
 
+export interface PaymentTransaction {
+  _id: string;
+  tenantId: string;
+  planId: string;
+  amountMinor: number;
+  currency: string;
+  provider: string;
+  providerOrderId: string;
+  providerPaymentId: string | null;
+  receipt: string;
+  status: "pending" | "captured" | "failed" | "refunded";
+  failureReason: string | null;
+  capturedAt: string | null;
+  failedAt: string | null;
+  refundedAt: string | null;
+  lastReconciledAt: string | null;
+  reconcileAttempts: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookEventSummary {
+  id: string;
+  eventId: string;
+  eventType: string;
+  processed: boolean;
+  error: string | null;
+  processedAt: string | null;
+  summary: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export function listTransactions(tenantId: string, query: Query = {}) {
+  return request<PaymentTransaction[]>(`/admin/subscriptions/${tenantId}/transactions`, {
+    audience,
+    query,
+  });
+}
+
+export function listWebhooks(tenantId: string, query: Query = {}) {
+  return request<WebhookEventSummary[]>(`/admin/subscriptions/${tenantId}/webhooks`, {
+    audience,
+    query,
+  });
+}
+
+export function triggerReconcile(query: Query = {}) {
+  return request<{
+    ok: boolean;
+    checked: number;
+    captured: number;
+    failed: number;
+    stale: number;
+    skipped: number;
+    errors: number;
+  }>("/admin/subscriptions/reconcile", { audience, method: "POST", query });
+}
+
 export function listAllOverrides(query: Query = {}) {
   return request<Override[]>("/admin/entitlements/overrides", {
     audience,

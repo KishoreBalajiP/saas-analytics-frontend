@@ -43,9 +43,12 @@ import {
   listPlans,
   listSubscriptions,
   listTenantOverrides,
+  listTransactions,
+  listWebhooks,
   revokeOverride,
   adminChangePlan,
   adminSetState,
+  triggerReconcile,
 } from "@/features/admin/api/billing";
 import type { AdminSubscription, Override, Plan } from "@/features/admin/api/billing";
 import { Permissions, hasPermission } from "@/lib/permissions";
@@ -276,6 +279,16 @@ export function AdminSubscriptionsView() {
     enabled: canView,
   });
 
+  const reconcile = useMutation({
+    mutationFn: () => triggerReconcile({ limit: 25 }),
+    onSuccess: (res) => {
+      toast.success(
+        `Reconcile complete: ${res.checked} checked, ${res.captured} captured, ${res.skipped} skipped, ${res.stale} stale, ${res.errors} errors.`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Reconciliation failed"),
+  });
+
   if (!canView) {
     return <ErrorState error={{ statusCode: 403 }} resource="Subscriptions" />;
   }
@@ -292,14 +305,26 @@ export function AdminSubscriptionsView() {
   const items = subscriptions.data ?? [];
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm flex-1">
-        <Search className="text-muted-foreground absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2" />
-        <Input
-          placeholder="Search subscriptions…"
-          className="pl-8"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-sm flex-1">
+          <Search className="text-muted-foreground absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2" />
+          <Input
+            placeholder="Search subscriptions…"
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {canOverride && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={reconcile.isPending}
+            onClick={() => reconcile.mutate()}
+          >
+            {reconcile.isPending ? "Reconciling…" : "Run reconciliation"}
+          </Button>
+        )}
       </div>
       {items.length === 0 ? (
         <EmptyState title="No subscriptions" description="No tenant subscriptions yet." />
@@ -380,6 +405,20 @@ function SubscriptionRow({
             <div className="font-medium">{date(sub.graceEndsAt)}</div>
           </div>
         </div>
+        {(sub.paymentProvider || sub.paymentReference) && (
+          <div className="grid grid-cols-2 gap-x-4 rounded-md border p-2 text-sm md:grid-cols-3">
+            <div>
+              <div className="text-muted-foreground text-xs uppercase tracking-wide">Provider</div>
+              <div className="font-medium">{sub.paymentProvider ?? "—"}</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-muted-foreground text-xs uppercase tracking-wide">
+                Provider reference
+              </div>
+              <div className="font-mono text-xs">{sub.paymentReference ?? "—"}</div>
+            </div>
+          </div>
+        )}
         {canOverride ? (
           <div className="flex flex-wrap gap-2 pt-1">
             <PlanPicker
@@ -394,8 +433,85 @@ function SubscriptionRow({
             />
           </div>
         ) : null}
+        <PaymentHistory tenantId={sub.tenantId} />
       </CardContent>
     </Card>
+  );
+}
+
+function PaymentHistory({ tenantId }: { tenantId: string }) {
+  const [open, setOpen] = useState(false);
+  const transactions = useQuery({
+    queryKey: ["admin", "transactions", tenantId],
+    queryFn: () => listTransactions(tenantId, { limit: 20 }),
+    enabled: open,
+  });
+  const webhooks = useQuery({
+    queryKey: ["admin", "webhooks", tenantId],
+    queryFn: () => listWebhooks(tenantId, { limit: 20 }),
+    enabled: open,
+  });
+  return (
+    <div className="pt-1">
+      <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
+        {open ? "Hide payment activity" : "Show payment activity"}
+      </Button>
+      {open && (
+        <div className="mt-2 space-y-3 text-sm">
+          {transactions.isLoading ? (
+            <TableSkeleton rows={2} cols={3} />
+          ) : (transactions.data ?? []).length === 0 ? (
+            <p className="text-muted-foreground">No payment transactions.</p>
+          ) : (
+            <ul className="space-y-1">
+              {(transactions.data ?? []).map((t) => (
+                <li
+                  key={t._id}
+                  className="flex flex-wrap items-center gap-2 border-b py-1 last:border-b-0"
+                >
+                  <Badge
+                    variant={
+                      t.status === "captured"
+                        ? "default"
+                        : t.status === "pending"
+                          ? "outline"
+                          : "destructive"
+                    }
+                  >
+                    {t.status}
+                  </Badge>
+                  <code className="text-xs">{t.providerOrderId}</code>
+                  <span className="text-muted-foreground text-xs">
+                    {(t.amountMinor / 100).toFixed(2)} {t.currency} · {t.planId}
+                  </span>
+                  {t.failureReason && (
+                    <span className="text-xs text-destructive">{t.failureReason}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {webhooks.data && webhooks.data.length > 0 && (
+            <ul className="space-y-1">
+              {(webhooks.data ?? []).map((w) => (
+                <li
+                  key={w.id}
+                  className="flex flex-wrap items-center gap-2 border-b py-1 text-xs last:border-b-0"
+                >
+                  <span className="font-mono">{w.eventType}</span>
+                  {w.processed ? (
+                    <Badge variant="secondary">processed</Badge>
+                  ) : (
+                    <Badge variant="destructive">unprocessed</Badge>
+                  )}
+                  {w.error && <span className="text-destructive">{w.error}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

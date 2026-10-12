@@ -283,18 +283,213 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Upgrade</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            Checkout is not yet available. To change plans, contact your platform administrator or
-            use the in-product plan picker once a payment provider is configured.
-          </p>
-        </CardContent>
-      </Card>
+      <UpgradeSection tenantId={tenantId} currentPlanId={sub.planId} />
     </div>
+  );
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (response: unknown) => void) => void;
+    };
+  }
+}
+
+function loadRazorpayScript(): Promise<void> {
+  if (typeof window.Razorpay !== "undefined") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(
+      "script[data-razorpay-checkout]",
+    ) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () =>
+        reject(new Error("Failed to load Razorpay Checkout")),
+      );
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset["razorpayCheckout"] = "true";
+    script.onload = () => resolve();
+    script.onerror = () =>
+      reject(new Error("Failed to load Razorpay Checkout. Check your connection and retry."));
+    document.body.appendChild(script);
+  });
+}
+
+type CheckoutPhase =
+  "idle" | "creating" | "ready" | "verifying" | "success" | "failed" | "cancelled" | "unavailable";
+
+function UpgradeSection({ tenantId, currentPlanId }: { tenantId: string; currentPlanId: string }) {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [phase, setPhase] = useState<CheckoutPhase>("idle");
+  const [detail, setDetail] = useState<string | null>(null);
+
+  const plans = useQuery({
+    queryKey: ["billing", "plans", tenantId],
+    queryFn: () => billingApi.listPlans(tenantId),
+    enabled: Boolean(tenantId),
+  });
+
+  const refreshAll = () => {
+    void queryClient.invalidateQueries({ queryKey: ["billing"] });
+  };
+
+  async function startCheckout(planId: string) {
+    setPhase("creating");
+    setDetail(null);
+    let session;
+    try {
+      session = await billingApi.createCheckout(tenantId, { planId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Checkout failed";
+      // 501 (or equivalent) means the provider is disabled: safe message, no fake payment.
+      setPhase("unavailable");
+      setDetail(message);
+      return;
+    }
+    try {
+      await loadRazorpayScript();
+    } catch (err) {
+      setPhase("failed");
+      setDetail(err instanceof Error ? err.message : "Checkout script failed to load");
+      return;
+    }
+    if (!window.Razorpay) {
+      setPhase("failed");
+      setDetail("Razorpay Checkout is unavailable in this browser.");
+      return;
+    }
+    setPhase("ready");
+    const rzp = new window.Razorpay({
+      key: session.keyId,
+      amount: session.amountMinor,
+      currency: session.currency,
+      order_id: session.orderId,
+      name: "Analivo",
+      description: `Upgrade to ${planId}`,
+      modal: {
+        ondismiss: () => {
+          // Browser dismissal is UNTRUSTED: nothing is activated. The
+          // pending order stays resumable; offer an explicit refresh.
+          setPhase("cancelled");
+          setDetail(
+            "Checkout was closed before payment completed. No charges were applied by Analivo.",
+          );
+        },
+      },
+      handler: (response: unknown) => {
+        const r = response as {
+          razorpay_order_id?: string;
+          razorpay_payment_id?: string;
+          razorpay_signature?: string;
+        };
+        void (async () => {
+          setPhase("verifying");
+          setDetail("Confirming payment with the server…");
+          try {
+            await billingApi.verifyPayment(tenantId, {
+              razorpay_order_id: r.razorpay_order_id ?? session.orderId,
+              razorpay_payment_id: r.razorpay_payment_id ?? "",
+              razorpay_signature: r.razorpay_signature ?? "",
+            });
+            setPhase("success");
+            setDetail("Payment confirmed. Your plan is now active.");
+            toast.success("Payment confirmed");
+            refreshAll();
+          } catch (err) {
+            setPhase("failed");
+            setDetail(err instanceof Error ? err.message : "Payment verification failed");
+          }
+        })();
+      },
+    });
+    rzp.on("payment.failed", () => {
+      setPhase("failed");
+      setDetail("The payment failed. No plan change was applied. You can retry safely.");
+    });
+    rzp.open();
+  }
+
+  const items = plans.data ?? [];
+  const purchasable = items.filter((p) => p.purchasable && p.code !== currentPlanId);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Upgrade</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {plans.isLoading ? (
+          <TableSkeleton rows={2} cols={2} />
+        ) : plans.isError ? (
+          <ErrorState error={plans.error} onRetry={() => plans.refetch()} resource="Plans" />
+        ) : purchasable.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No paid plans are available for purchase right now. Contact your platform administrator.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {purchasable.map((p) => (
+                <button
+                  key={p.code}
+                  type="button"
+                  data-testid={`plan-${p.code}`}
+                  onClick={() => setSelected(p.code)}
+                  className={`rounded-md border p-3 text-left ${selected === p.code ? "border-primary ring-1 ring-primary" : ""}`}
+                >
+                  <div className="font-medium">{p.displayName}</div>
+                  <div className="text-muted-foreground text-sm">
+                    {p.price
+                      ? `${(p.price.amountMinor / 100).toFixed(2)} ${p.price.currency} · one-time`
+                      : "Price on request"}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                disabled={!selected || phase === "creating" || phase === "verifying"}
+                onClick={() => selected && void startCheckout(selected)}
+              >
+                {phase === "creating"
+                  ? "Creating checkout…"
+                  : phase === "verifying"
+                    ? "Verifying…"
+                    : "Pay securely"}
+              </Button>
+              {(phase === "cancelled" || phase === "failed") && (
+                <Button size="sm" variant="outline" onClick={refreshAll}>
+                  Refresh status
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+        {phase === "verifying" && <p className="text-sm text-amber-600">{detail}</p>}
+        {phase === "success" && (
+          <p className="flex items-center gap-1 text-sm text-emerald-600">
+            <CheckCircle2 className="h-3.5 w-3.5" /> {detail}
+          </p>
+        )}
+        {(phase === "failed" || phase === "cancelled" || phase === "unavailable") && detail && (
+          <p className="flex items-center gap-1 text-sm text-destructive">
+            <XCircle className="h-3.5 w-3.5" /> {detail}
+          </p>
+        )}
+        <p className="text-muted-foreground text-xs">
+          Payments are processed by Razorpay in test mode. Paid access activates only after
+          server-side verification — closing this window never grants access by itself.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

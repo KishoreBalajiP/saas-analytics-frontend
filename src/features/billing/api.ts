@@ -104,8 +104,58 @@ export interface UsageSummary {
   resolvedAt: string;
 }
 
+export interface PlanPrice {
+  code: string;
+  name: string;
+  displayName: string;
+  description: string;
+  tier: number;
+  purchasable: boolean;
+  price: { amountMinor: number; currency: string; interval: "one-time" } | null;
+}
+
+export interface CheckoutSession {
+  transactionId: string;
+  orderId: string;
+  keyId: string;
+  amountMinor: number;
+  currency: string;
+  planId: string;
+  reused: boolean;
+}
+
+export interface VerifyResult {
+  verified: boolean;
+  idempotent: boolean;
+  subscription: SubscriptionSummary;
+  transactionId: string;
+}
+
+export function listPlans(tenantId: string) {
+  return request<PlanPrice[]>(`/tenants/${tenantId}/plans`, { audience });
+}
+
 export function getSubscription(tenantId: string) {
   return request<SubscriptionSummary>(`/tenants/${tenantId}/subscription`, { audience });
+}
+
+export function createCheckout(tenantId: string, body: { planId: string }) {
+  return request<CheckoutSession>(`/tenants/${tenantId}/subscription/checkout`, {
+    audience,
+    method: "POST",
+    body,
+  });
+}
+
+export function verifyPayment(
+  tenantId: string,
+  body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string },
+) {
+  return request<VerifyResult>(`/tenants/${tenantId}/subscription/verify`, {
+    audience,
+    method: "POST",
+    body,
+  });
 }
 
 export function getSubscriptionTimeline(tenantId: string, query: Query = {}) {
