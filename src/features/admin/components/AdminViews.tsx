@@ -39,23 +39,37 @@ function date(value?: string) {
 }
 export function AdminOverview() {
   const { permissions } = useAdminSession();
-  const canView = hasPermission(permissions, Permissions.MONITORING_VIEW);
+  const canView =
+    hasPermission(permissions, Permissions.MONITORING_VIEW) ||
+    hasPermission(permissions, Permissions.IAM_TENANTS_VIEW);
   const query = useQuery({
-    queryKey: ["admin", "health", "aggregate"],
-    queryFn: adminApi.healthAggregate,
+    queryKey: ["admin", "dashboard", "summary"],
+    queryFn: () => adminApi.dashboardSummary({ limit: 10 }),
     enabled: canView,
   });
   if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Admin overview" />;
   if (query.isLoading) return <TableSkeleton rows={4} cols={2} />;
   if (query.isError)
     return (
-      <ErrorState error={query.error} onRetry={() => query.refetch()} resource="System health" />
+      <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Admin overview" />
     );
-  const data = query.data ?? {};
-  const entries = Object.entries(data);
+  const data = query.data;
+  if (!data) {
+    return <EmptyState title="No overview data" description="No data available yet." />;
+  }
+  const counts = data.counts ?? {};
+  const countCards = [
+    { label: "Total tenants", value: counts["total"] ?? 0 },
+    { label: "Active", value: counts["active"] ?? 0 },
+    { label: "Pending", value: counts["pending"] ?? 0 },
+    { label: "Suspended", value: counts["suspended"] ?? 0 },
+    { label: "Disabled", value: counts["disabled"] ?? 0 },
+    { label: "Archived", value: counts["archived"] ?? 0 },
+  ];
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-sm">Last updated {date(data.generatedAt)}</p>
         <Button
           variant="outline"
           size="sm"
@@ -65,25 +79,71 @@ export function AdminOverview() {
           <RefreshCw className="mr-1 h-3.5 w-3.5" /> Refresh
         </Button>
       </div>
-      {entries.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {entries.map(([key, value]) => (
-            <Card key={key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm capitalize">{key.replace(/[-_]/g, " ")}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">
-                {typeof value === "object" ? "Available" : String(value ?? "—")}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          title="No health data"
-          description="The monitoring service returned no aggregate metrics."
-        />
-      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {countCards.map((card) => (
+          <Card key={card.label}>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-muted-foreground text-xs uppercase tracking-wide">
+                {card.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold">{card.value}</CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent tenant registrations</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.recentTenants && data.recentTenants.length > 0 ? (
+              data.recentTenants.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between border-b py-1 last:border-b-0"
+                >
+                  <div>
+                    <div className="font-medium">{t.name}</div>
+                    <div className="text-muted-foreground text-xs">/{t.slug}</div>
+                  </div>
+                  <Badge variant={t.status === "active" ? "default" : "secondary"}>
+                    {t.status}
+                  </Badge>
+                </div>
+              ))
+            ) : (
+              <EmptyState title="No tenants yet" description="No recent registrations." />
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent platform admin actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.recentActions && data.recentActions.length > 0 ? (
+              data.recentActions.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between border-b py-1 last:border-b-0"
+                >
+                  <div>
+                    <div className="font-medium">
+                      {a.module}.{a.action}
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      {a.actor?.type ?? "system"} · {date(a.occurredAt)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <EmptyState title="No recent actions" description="No audit events to show." />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -491,12 +551,43 @@ function AdminRecordCard({
 }
 
 export function AdminList() {
-  const { permissions } = useAdminSession();
+  const { permissions, me } = useAdminSession();
+  const queryClient = useQueryClient();
   const canView = hasPermission(permissions, Permissions.IAM_ADMINS_VIEW);
+  const canSuspend = hasPermission(permissions, Permissions.IAM_ADMINS_SUSPEND);
+  const canRestore = hasPermission(permissions, Permissions.IAM_ADMINS_RESTORE);
+  const [pendingAction, setPendingAction] = useState<{
+    kind: "suspend" | "restore";
+    id: string;
+    reason: string;
+  } | null>(null);
   const query = useQuery({
     queryKey: ["admin", "admins"],
     queryFn: () => adminApi.listAdmins({ page: 1, limit: 50 }),
     enabled: canView,
+  });
+  const suspendMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      adminApi.suspendAdmin(id, reason),
+    onSuccess: () => {
+      toast.success("Admin suspended");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+    },
+    onError: (err: Error) => {
+      const message = (err as { json?: { message?: string } }).json?.message ?? err.message;
+      toast.error(`Failed to suspend admin: ${message}`);
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => adminApi.restoreAdmin(id),
+    onSuccess: () => {
+      toast.success("Admin restored");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+    },
+    onError: (err: Error) => {
+      const message = (err as { json?: { message?: string } }).json?.message ?? err.message;
+      toast.error(`Failed to restore admin: ${message}`);
+    },
   });
   if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Platform admins" />;
   if (query.isLoading) return <TableSkeleton rows={5} cols={4} />;
@@ -505,21 +596,105 @@ export function AdminList() {
       <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Platform admins" />
     );
   const rows = query.data?.data ?? [];
-  return rows.length ? (
-    <div className="space-y-2">
-      {rows.map((admin) => (
-        <Card key={admin._id}>
-          <CardContent className="flex flex-wrap justify-between gap-2 p-4">
-            <span className="font-medium">{admin.name || admin.email}</span>
-            <span className="text-sm text-muted-foreground">
-              {admin.email} · {admin.adminType}
-            </span>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  ) : (
-    <EmptyState title="No platform admins" />
+  return (
+    <>
+      {rows.length ? (
+        <div className="space-y-2">
+          {rows.map((adminRow) => {
+            const isSelf = me?._id === adminRow._id || me?.id === adminRow._id;
+            const isSuspended = adminRow.status === "suspended";
+            return (
+              <Card key={adminRow._id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
+                  <div>
+                    <div className="font-medium">{adminRow.name || adminRow.email}</div>
+                    <div className="text-muted-foreground text-sm">
+                      {adminRow.email} · {adminRow.adminType}
+                      {adminRow.status ? ` · ${adminRow.status}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {canSuspend && !isSuspended && !isSelf ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setPendingAction({
+                                kind: "suspend",
+                                id: adminRow._id,
+                                reason: "",
+                              })
+                            }
+                            disabled={suspendMutation.isPending}
+                          >
+                            Suspend
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Suspend platform admin?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              The admin will be signed out and cannot log in until restored. Provide
+                              a reason for the audit log.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="space-y-2">
+                            <Label htmlFor="suspend-reason">Reason</Label>
+                            <Textarea
+                              id="suspend-reason"
+                              value={pendingAction?.reason ?? ""}
+                              onChange={(e) =>
+                                setPendingAction((p) =>
+                                  p && p.id === adminRow._id ? { ...p, reason: e.target.value } : p,
+                                )
+                              }
+                              rows={3}
+                              required
+                            />
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => {
+                                if (!pendingAction || !pendingAction.reason.trim()) {
+                                  toast.error("Reason is required");
+                                  return;
+                                }
+                                suspendMutation.mutate({
+                                  id: pendingAction.id,
+                                  reason: pendingAction.reason.trim(),
+                                });
+                                setPendingAction(null);
+                              }}
+                            >
+                              Suspend
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : null}
+                    {canRestore && isSuspended ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => restoreMutation.mutate({ id: adminRow._id })}
+                        disabled={restoreMutation.isPending}
+                      >
+                        Restore
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState title="No platform admins" />
+      )}
+    </>
   );
 }
 
@@ -557,11 +732,48 @@ export function RoleList() {
 export function AuditLogList() {
   const { permissions } = useAdminSession();
   const canView = hasPermission(permissions, Permissions.AUDIT_LOGS_VIEW);
+  const canExport = hasPermission(permissions, Permissions.AUDIT_LOGS_EXPORT);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [moduleFilter, setModuleFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [actorTypeFilter, setActorTypeFilter] = useState("");
+  const [exportId, setExportId] = useState<string | null>(null);
   const query = useQuery({
-    queryKey: ["admin", "audit", page],
-    queryFn: () => adminApi.listAuditLogs({ page, limit: 25 }),
+    queryKey: ["admin", "audit", page, moduleFilter, actionFilter, actorTypeFilter],
+    queryFn: () => {
+      const queryParams: Record<string, string | number> = { page, limit: 25 };
+      if (moduleFilter.trim()) queryParams["module"] = moduleFilter.trim();
+      if (actionFilter.trim()) queryParams["action"] = actionFilter.trim();
+      if (actorTypeFilter.trim()) queryParams["actorType"] = actorTypeFilter.trim();
+      return adminApi.listAuditLogs(queryParams);
+    },
     enabled: canView,
+  });
+  const exportMutation = useMutation({
+    mutationFn: () =>
+      adminApi.exportAuditLogs(
+        {
+          ...(moduleFilter.trim() ? { module: moduleFilter.trim() } : {}),
+          ...(actionFilter.trim() ? { action: actionFilter.trim() } : {}),
+          ...(actorTypeFilter.trim() ? { actorType: actorTypeFilter.trim() } : {}),
+        },
+        "json",
+      ),
+    onSuccess: (data) => {
+      toast.success("Export requested");
+      setExportId(String(data.exportId));
+    },
+    onError: (err: Error) => toast.error(`Export failed: ${err.message}`),
+  });
+  const exportStatusQuery = useQuery({
+    queryKey: ["admin", "audit", "export", exportId],
+    queryFn: () => adminApi.auditExportStatus(exportId!),
+    enabled: Boolean(exportId),
+    refetchInterval: (q) => {
+      const status = String((q.state.data as { status?: string } | undefined)?.status ?? "");
+      return status === "completed" || status === "failed" ? false : 2000;
+    },
   });
   if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Audit logs" />;
   if (query.isLoading) return <TableSkeleton rows={6} cols={5} />;
@@ -589,16 +801,71 @@ export function AuditLogList() {
     },
   ];
   const tableRows = rows as Array<AuditLog & Record<string, unknown>>;
-  return tableRows.length ? (
-    <DataTable
-      columns={columns}
-      data={tableRows}
-      {...(meta ? { meta } : {})}
-      onPageChange={setPage}
-      getRowId={(log) => String(log["_id"])}
-    />
-  ) : (
-    <EmptyState title="No audit events" />
+  return (
+    <div className="space-y-4">
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setPage(1);
+          void queryClient.invalidateQueries({ queryKey: ["admin", "audit"] });
+        }}
+      >
+        <Input
+          value={moduleFilter}
+          onChange={(e) => setModuleFilter(e.target.value)}
+          placeholder="Module (e.g. iam.tenants)"
+          aria-label="Filter by module"
+        />
+        <Input
+          value={actionFilter}
+          onChange={(e) => setActionFilter(e.target.value)}
+          placeholder="Action"
+          aria-label="Filter by action"
+        />
+        <Input
+          value={actorTypeFilter}
+          onChange={(e) => setActorTypeFilter(e.target.value)}
+          placeholder="Actor type (admin|user|service|system)"
+          aria-label="Filter by actor type"
+        />
+        <Button type="submit" variant="outline">
+          <Search className="mr-1 h-4 w-4" /> Filter
+        </Button>
+        {canExport && (
+          <Button
+            type="button"
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending || Boolean(exportId)}
+          >
+            Export JSON
+          </Button>
+        )}
+      </form>
+      {exportId ? (
+        <Card>
+          <CardContent className="p-3 text-sm">
+            Export {exportId}: status ={" "}
+            <span className="font-mono">
+              {String(
+                (exportStatusQuery.data as { status?: string } | undefined)?.status ?? "queued",
+              )}
+            </span>
+          </CardContent>
+        </Card>
+      ) : null}
+      {tableRows.length ? (
+        <DataTable
+          columns={columns}
+          data={tableRows}
+          {...(meta ? { meta } : {})}
+          onPageChange={setPage}
+          getRowId={(log) => String(log["_id"])}
+        />
+      ) : (
+        <EmptyState title="No audit events" />
+      )}
+    </div>
   );
 }
 

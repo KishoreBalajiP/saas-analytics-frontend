@@ -421,3 +421,44 @@ export function healthAggregate() {
 export function metrics() {
   return request<Record<string, unknown>>("/monitoring/metrics", { audience });
 }
+
+/* ----------------------------- Dashboard (Phase 5) ----------------------------- */
+
+export interface DashboardTenantCounts {
+  total: number;
+  pending: number;
+  active: number;
+  suspended: number;
+  disabled: number;
+  archived: number;
+}
+
+export interface DashboardRecentTenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DashboardRecentAction {
+  id: string;
+  module: string;
+  action: string;
+  resourceId: string | null;
+  actor: { id: string | null; type: string } | null;
+  occurredAt: string;
+}
+
+export interface DashboardSummary {
+  counts: DashboardTenantCounts;
+  recentTenants: DashboardRecentTenant[];
+  recentActions: DashboardRecentAction[];
+  health: Record<string, unknown>;
+  generatedAt: string;
+}
+
+export function dashboardSummary(query: Query = {}) {
+  return request<DashboardSummary>("/admin/dashboard/summary", { audience, query });
+}
