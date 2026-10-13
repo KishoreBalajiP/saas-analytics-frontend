@@ -25,6 +25,8 @@ export function TenantLoginPage() {
   const [password, setPassword] = useState("");
   const [mfaToken, setMfaToken] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendEmail, setResendEmail] = useState("");
 
   useEffect(() => {
     if (status === "authenticated") void navigate({ to: "/dashboard" });
@@ -60,9 +62,26 @@ export function TenantLoginPage() {
         setMfaRequired(true);
         return;
       }
+      if (error instanceof ApiError && error.statusCode === 403 && error.code === "EMAIL_NOT_VERIFIED") {
+        setShowResend(true);
+        setResendEmail(email.trim());
+        toast.error("Email verification required. Would you like to resend the verification link?");
+        return;
+      }
       toast.error(error instanceof Error ? error.message : "Sign in failed");
     },
   });
+
+  const handleResend = async () => {
+    try {
+      await authApi.resendVerification(resendEmail);
+      setShowResend(false);
+      toast.info("A verification email has been sent. Check your inbox.");
+    } catch {
+      toast.error("Could not request verification resend. Please try again later.");
+      setShowResend(true);
+    }
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -116,18 +135,20 @@ export function TenantLoginPage() {
               required
             />
           </div>
-          {mfaRequired ? (
+          {showResend ? (
             <div className="space-y-2">
-              <Label htmlFor="mfa">Authenticator code</Label>
+              <Label htmlFor="resendEmail">Email</Label>
               <Input
-                id="mfa"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={mfaToken}
-                onChange={(event) => setMfaToken(event.target.value)}
+                id="resendEmail"
+                type="email"
+                defaultValue={resendEmail}
+                readOnly
+                className="bg-transparent border-none text-sm text-foreground"
                 required
               />
+              <Button type="button" size="sm" onClick={handleResend} disabled={login.isPending}>
+                {login.isPending ? "Sending…" : "Resend verification"}
+              </Button>
             </div>
           ) : null}
           <InlineFieldErrors error={login.error} />

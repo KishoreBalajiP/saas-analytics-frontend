@@ -63,7 +63,19 @@ export function RegistrationPage() {
       else toast.error("Workspace created, but the verification email could not be delivered.");
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Unable to create your workspace.");
+      if (error instanceof Error) {
+        // Distinguish workspace-slug-taken from a generic conflict, so the
+        // user is guided to sign in rather than seeing a dead-end conflict.
+        if ((error as { code?: string })?.code === 'WORKSPACE_SLUG_TAKEN') {
+          toast.error(
+            'This workspace URL is already taken. If this is your existing workspace, <a href="/login" target="_blank" rel="noopener">sign in</a>.'
+          );
+          return;
+        }
+        toast.error(error.message ?? 'Unable to create your workspace.');
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : 'Unable to create your workspace.');
     },
   });
 
@@ -233,6 +245,23 @@ export function RegistrationPage() {
                 <AppLink to="/request-access">Request access instead</AppLink>
               </Button>
             </div>
+            {isSubmitted === false && verificationSent === false && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await authApi.resendVerification(email);
+                    toast.info("If an account exists for that email, a verification link has been sent. Check your inbox.");
+                  } catch {
+                    toast.error("Could not resend verification email. Please try again later.");
+                  }
+                }}
+                className="mt-2 w-full"
+              >
+                Resend verification link
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

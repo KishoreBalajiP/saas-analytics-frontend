@@ -90,6 +90,14 @@ export function forgotPassword(tenantSlug: string, email: string) {
   });
 }
 
+export function resendVerification(email: string) {
+  return request<{ ok: boolean }>("/auth/resend-verification", {
+    method: "POST",
+    audience: "public",
+    body: { email },
+  });
+}
+
 export function resetPassword(tenantSlug: string, token: string, newPassword: string) {
   return request<{ ok: boolean }>("/auth/password/reset", {
     method: "POST",

@@ -54,11 +54,24 @@ const tokens: Record<Exclude<Audience, "public">, string | null> = {
   admin: null,
 };
 
+/** True when a 401 refresh attempt has already fired and failed for the
+ * given audience. The requestFull hook skips the auto-refresh-and-retry
+ * to prevent a refresh storm on every TenantSessionProvider mount. */
+const sessionAbsent: Record<Exclude<Audience, "public">, boolean> = {
+  tenant: false,
+  admin: false,
+};
+
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
 export function setAccessToken(audience: Exclude<Audience, "public">, token: string | null) {
   tokens[audience] = token;
+  // When a token is cleared the absent flag must also be cleared, because
+  // a later login could re-establish a session.
+  if (token) {
+    sessionAbsent[audience] = false;
+  }
   listeners.forEach((l) => l());
 }
 
@@ -143,18 +156,30 @@ async function rawRequest(path: string, options: RequestOptions): Promise<Respon
 let refreshInFlight: Promise<boolean> | null = null;
 
 async function refreshSession(audience: Exclude<Audience, "public">): Promise<boolean> {
+  // Do not re-trigger a refresh if one already failed and marked the
+  // session as absent — this prevents a refresh storm on every
+  // TenantSessionProvider mount.
+  if (sessionAbsent[audience]) return false;
+
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
         const path = audience === "admin" ? "/admin-auth/refresh" : "/auth/refresh";
         const response = await rawRequest(path, { method: "POST", audience, noRefresh: true });
-        if (!response.ok) return false;
+        if (!response.ok) {
+          sessionAbsent[audience] = true;
+          return false;
+        }
         const payload = (await response.json()) as ApiResponse<{ accessToken?: string }>;
         const token = payload?.data?.accessToken;
-        if (!token) return false;
+        if (!token) {
+          sessionAbsent[audience] = true;
+          return false;
+        }
         setAccessToken(audience, token);
         return true;
       } catch {
+        sessionAbsent[audience] = true;
         return false;
       } finally {
         setTimeout(() => {
@@ -201,6 +226,7 @@ export async function requestFull<T>(
     response.status === 401 &&
     audience !== "public" &&
     !options.noRefresh &&
+    !sessionAbsent[audience] &&
     !path.includes("/login") &&
     !path.includes("/refresh")
   ) {
