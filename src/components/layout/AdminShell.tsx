@@ -36,62 +36,84 @@ const ADMIN_NAV = [
     label: "Dashboard",
     icon: LayoutDashboard,
     permission: Permissions.MONITORING_VIEW,
+    description: "Admin overview and system monitoring",
   },
   {
     to: "/admin/tenants",
     label: "Tenants",
     icon: Building2,
     permission: Permissions.IAM_TENANTS_VIEW,
+    description: "Manage workspace tenants and members",
   },
-  { to: "/admin/admins", label: "Admins", icon: Shield, permission: Permissions.IAM_ADMINS_VIEW },
-  { to: "/admin/roles", label: "Roles", icon: UserCog, permission: Permissions.IAM_ROLES_VIEW },
+  {
+    to: "/admin/admins",
+    label: "Admins",
+    icon: Shield,
+    permission: Permissions.IAM_ADMINS_VIEW,
+    description: "Manage administrator accounts",
+  },
+  {
+    to: "/admin/roles",
+    label: "Roles",
+    icon: UserCog,
+    permission: Permissions.IAM_ROLES_VIEW,
+    description: "Manage roles and permissions",
+  },
   {
     to: "/admin/plans",
     label: "Plans",
     icon: BadgeDollarSign,
     permission: Permissions.BILLING_PLANS_VIEW,
+    description: "View and manage pricing plans",
   },
   {
     to: "/admin/subscriptions",
     label: "Subscriptions",
     icon: BadgeDollarSign,
     permission: Permissions.BILLING_SUBSCRIPTIONS_VIEW,
+    description: "View and manage subscriptions",
   },
   {
     to: "/admin/entitlements",
     label: "Entitlements",
     icon: BadgeDollarSign,
     permission: Permissions.BILLING_ENTITLEMENTS_OVERRIDE,
+    description: "Manage entitlements and overrides",
   },
   {
     to: "/admin/audit-logs",
     label: "Audit Logs",
     icon: ScrollText,
     permission: Permissions.AUDIT_LOGS_VIEW,
+    description: "View audit trail and logs",
   },
   {
     to: "/admin/access-logs",
     label: "Access Logs",
     icon: Activity,
     permission: Permissions.ACCESS_LOGS_VIEW,
+    description: "View access logs and activity history",
   },
   {
     to: "/admin/compliance",
     label: "Compliance",
     icon: FileCheck,
     permission: Permissions.COMPLIANCE_VIEW,
+    description: "View compliance reports and settings",
   },
   {
     to: "/admin/support",
     label: "Support",
     icon: Headphones,
     permission: Permissions.SUPPORT_LOOKUP,
+    description: "Access support tools and lookup",
   },
   {
     to: "/admin/monitoring",
     label: "Monitoring",
     icon: Monitor,
     permission: Permissions.MONITORING_VIEW,
+    description: "Monitor system health and metrics",
   },
 ];
 
@@ -145,7 +167,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="truncate">{item.label}</span>
+                {item.description && (
+                  <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5">
+                    {item.description}
+                  </p>
+                )}
               </AppLink>
             );
           })}
@@ -162,7 +189,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur lg:px-8">
+        <div className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-4 lg:px-8 backdrop-blur">
           <Button
             variant="ghost"
             size="icon"
@@ -172,8 +199,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          <div className="text-sm text-muted-foreground">
-            Admin portal · <span className="text-foreground">{me?.adminType ?? "admin"}</span>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground">Admin portal</div>
+            <span className="text-foreground font-medium">{me?.adminType ?? "admin"}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <DropdownMenu>
@@ -200,7 +228,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </header>
+        </div>
         <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
       </div>
     </div>

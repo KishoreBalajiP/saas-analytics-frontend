@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 import * as authApi from "@/features/auth/api";
 import { ApiError } from "@/lib/api/client";
 import { storeTenantSlug, useTenantSession } from "@/lib/auth/session";
@@ -27,6 +28,7 @@ export function TenantLoginPage() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [showResend, setShowResend] = useState(false);
   const [resendEmail, setResendEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (status === "authenticated") void navigate({ to: "/dashboard" });
@@ -62,7 +64,11 @@ export function TenantLoginPage() {
         setMfaRequired(true);
         return;
       }
-      if (error instanceof ApiError && error.statusCode === 403 && error.code === "EMAIL_NOT_VERIFIED") {
+      if (
+        error instanceof ApiError &&
+        error.statusCode === 403 &&
+        error.code === "EMAIL_NOT_VERIFIED"
+      ) {
         setShowResend(true);
         setResendEmail(email.trim());
         toast.error("Email verification required. Would you like to resend the verification link?");
@@ -84,14 +90,14 @@ export function TenantLoginPage() {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle>Sign in to your workspace</CardTitle>
         <CardDescription>
           Enter your workspace slug together with your account credentials.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <form
           className="space-y-4"
           onSubmit={(event) => {
@@ -110,7 +116,11 @@ export function TenantLoginPage() {
               required
             />
             <p className="text-xs text-muted-foreground">
-              Sent as the tenant header on sign-in only.
+              Sent as the tenant header on sign-in only. If you don't know your slug,{" "}
+              <a href="/register" className="font-medium text-primary hover:underline">
+                create a workspace
+              </a>{" "}
+              or contact your administrator.
             </p>
           </div>
           <div className="space-y-2">
@@ -126,14 +136,25 @@ export function TenantLoginPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
+            <div className="flex items-center gap-3 w-full">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                className="flex-1 rounded-xl border border-border py-4 px-3 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((open) => !open)}
+                className="rounded-xl border border-border py-3 px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0 transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           {showResend ? (
             <div className="space-y-2">
@@ -143,7 +164,7 @@ export function TenantLoginPage() {
                 type="email"
                 defaultValue={resendEmail}
                 readOnly
-                className="bg-transparent border-none text-sm text-foreground"
+                className="bg-transparent border-none text-sm text-foreground w-full rounded-xl py-2 px-3 transition-colors"
                 required
               />
               <Button type="button" size="sm" onClick={handleResend} disabled={login.isPending}>
@@ -152,7 +173,11 @@ export function TenantLoginPage() {
             </div>
           ) : null}
           <InlineFieldErrors error={login.error} />
-          <Button type="submit" className="w-full" disabled={login.isPending}>
+          <Button
+            type="submit"
+            className="w-full rounded-xl py-3 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+            disabled={login.isPending}
+          >
             {login.isPending ? "Signing in…" : mfaRequired ? "Verify and sign in" : "Sign in"}
           </Button>
           <div className="text-center text-sm">
@@ -163,7 +188,7 @@ export function TenantLoginPage() {
           <p className="text-center text-sm text-muted-foreground">
             New to Analivo?{" "}
             <AppLink to="/register" className="font-medium text-primary hover:underline">
-              Create a workspace
+              Get started
             </AppLink>
           </p>
         </form>

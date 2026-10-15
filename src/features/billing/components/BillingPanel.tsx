@@ -430,9 +430,16 @@ function UpgradeSection({ tenantId, currentPlanId }: { tenantId: string; current
         ) : plans.isError ? (
           <ErrorState error={plans.error} onRetry={() => plans.refetch()} resource="Plans" />
         ) : purchasable.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No paid plans are available for purchase right now. Contact your platform administrator.
-          </p>
+          <div
+            role="status"
+            className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-950"
+          >
+            <p className="font-medium">Payments are currently unavailable</p>
+            <p className="mt-1 text-amber-900/80">
+              No purchasable plans are configured for this workspace. Your current access has not
+              changed. Contact your platform administrator if you need a plan change.
+            </p>
+          </div>
         ) : (
           <>
             <div className="grid gap-2 sm:grid-cols-2">

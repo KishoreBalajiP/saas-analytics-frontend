@@ -10,10 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcceptableUseRouteImport } from './routes/acceptable-use'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApiKeysRouteImport } from './routes/api-keys'
 import { Route as BillingRouteImport } from './routes/billing'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DashboardsRouteImport } from './routes/dashboards'
 import { Route as DatasetsRouteImport } from './routes/datasets'
@@ -21,11 +23,14 @@ import { Route as EmbedRouteImport } from './routes/embed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as RequestAccessRouteImport } from './routes/request-access'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminAccessLogsRouteImport } from './routes/admin.access-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
@@ -58,6 +63,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcceptableUseRoute = AcceptableUseRouteImport.update({
+  id: '/acceptable-use',
+  path: '/acceptable-use',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AlertsRoute = AlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
@@ -76,6 +86,11 @@ const ApiKeysRoute = ApiKeysRouteImport.update({
 const BillingRoute = BillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -113,6 +128,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -133,9 +153,19 @@ const RequestAccessRoute = RequestAccessRouteImport.update({
   path: '/request-access',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAccessLogsRoute = AdminAccessLogsRouteImport.update({
@@ -272,10 +302,12 @@ const ReportsReportIdEditRoute = ReportsReportIdEditRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/acceptable-use': typeof AcceptableUseRoute
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/billing': typeof BillingRoute
+  '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
@@ -283,11 +315,14 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
   '/request-access': typeof RequestAccessRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
@@ -317,20 +352,25 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/acceptable-use': typeof AcceptableUseRoute
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/billing': typeof BillingRoute
+  '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/embed': typeof EmbedRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
   '/request-access': typeof RequestAccessRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
@@ -361,10 +401,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/acceptable-use': typeof AcceptableUseRoute
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
   '/billing': typeof BillingRoute
+  '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
@@ -372,11 +414,14 @@ export interface FileRoutesById {
   '/login': typeof LoginRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/reports': typeof ReportsRouteWithChildren
   '/request-access': typeof RequestAccessRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
@@ -408,10 +453,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/acceptable-use'
     | '/alerts'
     | '/analytics'
     | '/api-keys'
     | '/billing'
+    | '/cookies'
     | '/dashboard'
     | '/dashboards'
     | '/datasets'
@@ -419,11 +466,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/privacy'
     | '/profile'
     | '/register'
     | '/reports'
     | '/request-access'
+    | '/security'
     | '/settings'
+    | '/terms'
     | '/admin/access-logs'
     | '/admin/admins'
     | '/admin/audit-logs'
@@ -453,20 +503,25 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/acceptable-use'
     | '/alerts'
     | '/analytics'
     | '/api-keys'
     | '/billing'
+    | '/cookies'
     | '/dashboard'
     | '/dashboards'
     | '/embed'
     | '/notifications'
     | '/onboarding'
+    | '/privacy'
     | '/profile'
     | '/register'
     | '/reports'
     | '/request-access'
+    | '/security'
     | '/settings'
+    | '/terms'
     | '/admin/access-logs'
     | '/admin/admins'
     | '/admin/audit-logs'
@@ -496,10 +551,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/acceptable-use'
     | '/alerts'
     | '/analytics'
     | '/api-keys'
     | '/billing'
+    | '/cookies'
     | '/dashboard'
     | '/dashboards'
     | '/datasets'
@@ -507,11 +564,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/privacy'
     | '/profile'
     | '/register'
     | '/reports'
     | '/request-access'
+    | '/security'
     | '/settings'
+    | '/terms'
     | '/admin/access-logs'
     | '/admin/admins'
     | '/admin/audit-logs'
@@ -542,10 +602,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcceptableUseRoute: typeof AcceptableUseRoute
   AlertsRoute: typeof AlertsRouteWithChildren
   AnalyticsRoute: typeof AnalyticsRoute
   ApiKeysRoute: typeof ApiKeysRoute
   BillingRoute: typeof BillingRoute
+  CookiesRoute: typeof CookiesRoute
   DashboardRoute: typeof DashboardRoute
   DashboardsRoute: typeof DashboardsRouteWithChildren
   DatasetsRoute: typeof DatasetsRouteWithChildren
@@ -553,11 +615,14 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   ReportsRoute: typeof ReportsRouteWithChildren
   RequestAccessRoute: typeof RequestAccessRoute
+  SecurityRoute: typeof SecurityRoute
   SettingsRoute: typeof SettingsRoute
+  TermsRoute: typeof TermsRoute
   AdminAccessLogsRoute: typeof AdminAccessLogsRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
@@ -581,6 +646,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/acceptable-use': {
+      id: '/acceptable-use'
+      path: '/acceptable-use'
+      fullPath: '/acceptable-use'
+      preLoaderRoute: typeof AcceptableUseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alerts': {
@@ -609,6 +681,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/billing'
       preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -660,6 +739,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -688,11 +774,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RequestAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/access-logs': {
@@ -993,10 +1093,12 @@ const AdminTenantsRouteWithChildren = AdminTenantsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcceptableUseRoute: AcceptableUseRoute,
   AlertsRoute: AlertsRouteWithChildren,
   AnalyticsRoute: AnalyticsRoute,
   ApiKeysRoute: ApiKeysRoute,
   BillingRoute: BillingRoute,
+  CookiesRoute: CookiesRoute,
   DashboardRoute: DashboardRoute,
   DashboardsRoute: DashboardsRouteWithChildren,
   DatasetsRoute: DatasetsRouteWithChildren,
@@ -1004,11 +1106,14 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   ReportsRoute: ReportsRouteWithChildren,
   RequestAccessRoute: RequestAccessRoute,
+  SecurityRoute: SecurityRoute,
   SettingsRoute: SettingsRoute,
+  TermsRoute: TermsRoute,
   AdminAccessLogsRoute: AdminAccessLogsRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,

@@ -2,6 +2,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { Brand } from "@/components/common/Brand";
 import { TenantSessionProvider } from "@/lib/auth/session";
+import { PublicFooter } from "@/components/common/PublicFooter";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -23,6 +24,9 @@ function LoginLayout() {
           <Brand />
         </div>
         <Outlet />
+        <div className="mt-12 w-full">
+          <PublicFooter />
+        </div>
       </div>
     </TenantSessionProvider>
   );

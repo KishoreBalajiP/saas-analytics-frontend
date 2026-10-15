@@ -36,17 +36,57 @@ import { useTenantSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { to: "/datasets", label: "Datasets", icon: Database },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/dashboards", label: "Dashboards", icon: Activity },
-  { to: "/reports", label: "Reports", icon: FileText },
-  { to: "/alerts", label: "Alerts", icon: ShieldAlert },
-  { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/api-keys", label: "API keys", icon: Key },
-  { to: "/embed", label: "Embed", icon: MonitorSmartphone },
-  { to: "/billing", label: "Subscription", icon: CreditCard },
-  { to: "/settings", label: "Settings", icon: Settings },
+  {
+    to: "/dashboard",
+    label: "Overview",
+    icon: LayoutDashboard,
+    description: "Home dashboard with setup status",
+  },
+  {
+    to: "/datasets",
+    label: "Datasets",
+    icon: Database,
+    description: "Connect and manage data sources",
+  },
+  {
+    to: "/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    description: "Query and explore your data",
+  },
+  {
+    to: "/dashboards",
+    label: "Dashboards",
+    icon: Activity,
+    description: "Visualize metrics in real time",
+  },
+  { to: "/reports", label: "Reports", icon: FileText, description: "Schedule and export reports" },
+  {
+    to: "/alerts",
+    label: "Alerts",
+    icon: ShieldAlert,
+    description: "Monitor conditions and get notified",
+  },
+  { to: "/notifications", label: "Notifications", icon: Bell, description: "View notifications" },
+  { to: "/api-keys", label: "API keys", icon: Key, description: "Manage API access keys" },
+  {
+    to: "/embed",
+    label: "Embed",
+    icon: MonitorSmartphone,
+    description: "Embed analytics externally",
+  },
+  {
+    to: "/billing",
+    label: "Subscription",
+    icon: CreditCard,
+    description: "Manage subscription and billing",
+  },
+  {
+    to: "/settings",
+    label: "Settings",
+    icon: Settings,
+    description: "Configure workspace preferences",
+  },
 ];
 
 export function TenantShell({ children }: { children: ReactNode }) {
@@ -106,7 +146,12 @@ export function TenantShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="truncate">{item.label}</span>
+                {item.description && (
+                  <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5">
+                    {item.description}
+                  </p>
+                )}
                 {item.to === "/notifications" && (unread.data?.count ?? 0) > 0 ? (
                   <Badge className="ml-auto" variant="secondary">
                     {unread.data?.count}
@@ -122,7 +167,7 @@ export function TenantShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur lg:px-8">
+        <div className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-4 lg:px-8 backdrop-blur">
           <Button
             variant="ghost"
             size="icon"
@@ -132,8 +177,9 @@ export function TenantShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          <div className="text-sm text-muted-foreground">
-            Tenant portal · <span className="text-foreground">{tenantSlug}</span>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground">Tenant portal</div>
+            <span className="text-foreground font-medium">{tenantSlug ?? me?.tenantId ?? "—"}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild aria-label="Notifications">
@@ -169,7 +215,7 @@ export function TenantShell({ children }: { children: ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </header>
+        </div>
         <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
       </div>
     </div>
