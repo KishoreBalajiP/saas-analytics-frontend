@@ -18,11 +18,11 @@ export const Route = createFileRoute("/privacy")({
         },
         {
           heading: "Service providers and cookies",
-          body: "The application uses authentication cookies and may use infrastructure, email, storage, payment, or monitoring providers configured by the operator. Confirm the provider list, international transfers, and retention schedule before publication.",
+          body: "The application uses authentication cookies and may use infrastructure, email, storage, payment, or monitoring providers configured by the operator. Provider names, international-transfer details, and retention schedules are deployment-specific and are not stated on this page.",
         },
         {
           heading: "Your choices",
-          body: "Users should contact their workspace administrator for workspace-level requests. Add the approved privacy contact and the final process for access, correction, deletion, and other applicable rights before launch.",
+          body: "Users can contact their workspace administrator for workspace-level requests. A public privacy contact and a final process for access, correction, deletion, and other applicable rights have not been published here.",
         },
       ]}
     />

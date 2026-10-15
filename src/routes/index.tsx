@@ -6,7 +6,6 @@ import {
   Check,
   Database,
   FileDown,
-  Folder,
   LockKeyhole,
   Menu,
   PanelsTopLeft,
@@ -22,7 +21,6 @@ import { Brand } from "@/components/common/Brand";
 import { Button } from "@/components/ui/button";
 import { TenantSessionProvider, useTenantSession } from "@/lib/auth/session";
 import { EmptyState, ErrorState } from "@/components/common/states";
-import { ComingSoon } from "@/components/common/states";
 import { PublicFooter } from "@/components/common/PublicFooter";
 
 export const Route = createFileRoute("/")({
@@ -50,13 +48,11 @@ export function HomePage() {
 function PublicHome() {
   const { status } = useTenantSession();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Only show implemented connectors; mark unimplemented as Coming Soon
+  // Keep the marketing list limited to connectors with an end-to-end workflow.
   const sources = [
     { icon: Database, name: "CSV", implemented: true },
     { icon: Table2, name: "XLSX", implemented: true },
     { icon: ShieldCheck, name: "Webhooks", implemented: true },
-    { icon: Database, name: "MongoDB", implemented: false },
-    { icon: Folder, name: "Google Sheets", implemented: false },
   ];
   const primaryPath = status === "authenticated" ? "/dashboard" : "/register";
   const primaryLabel = status === "authenticated" ? "Open dashboard" : "Get started";
@@ -130,177 +126,135 @@ function PublicHome() {
             </p>
           </div>
           <DashboardPreview />
-          <section
-            id="features"
-            className="border-y border-border/70 bg-card/50 px-5 py-20 lg:px-8"
-          >
-            <div className="mx-auto max-w-7xl">
-              <SectionIntro
-                eyebrow="One place to see the signal"
-                title="From raw rows to confident action."
-                description="Analivo gives teams a focused workspace for connecting data, exploring trends, and sharing the view that matters."
-              />
-              <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Feature
-                  icon={PanelsTopLeft}
-                  title="Dashboards"
-                  text="Compose live KPI cards and widgets into focused dashboards."
-                />
-                <Feature
-                  icon={BarChart3}
-                  title="Analytics"
-                  text="Query datasets with filters, metrics, grouping, and history."
-                />
-                <Feature
-                  icon={FileDown}
-                  title="Reports"
-                  text="Build reports, export results, and schedule recurring runs."
-                />
-                <Feature
-                  icon={BellRing}
-                  title="Alerts"
-                  text="Monitor thresholds and notify authorized workspace users."
-                />
-              </div>
-            </div>
-          </section>
-          <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+        </section>
+        <section
+          id="features"
+          className="scroll-mt-20 border-y border-border/70 bg-card/50 px-5 py-20 lg:px-8"
+        >
+          <div className="mx-auto max-w-7xl">
             <SectionIntro
-              eyebrow="How it works"
-              title="A clear path from data to insight."
-              description="Keep the workflow simple: connect what you have, understand what it says, then share it with the right people."
+              eyebrow="One place to see the signal"
+              title="From raw rows to confident action."
+              description="Analivo gives teams a focused workspace for connecting data, exploring trends, and sharing the view that matters."
             />
-            <div className="mt-12 grid gap-6 md:grid-cols-4">
-              {[
-                ["01", "Connect or import", "Bring in CSV, XLSX, or signed webhook data."],
-                ["02", "Explore", "Query rows with the analytics builder and inspect results."],
-                ["03", "Compose", "Turn useful metrics into dashboards and reports."],
-                [
-                  "04",
-                  "Share safely",
-                  "Use alerts, exports, and tenant-scoped access to distribute insight.",
-                ],
-              ].map(([number, title, text]) => (
-                <div key={number} className="relative border-l-2 border-primary/30 pl-5">
-                  <span className="text-sm font-bold text-primary">{number}</span>
-                  <h3 className="mt-3 text-lg font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Feature
+                icon={PanelsTopLeft}
+                title="Dashboards"
+                text="Compose live KPI cards and widgets into focused dashboards."
+              />
+              <Feature
+                icon={BarChart3}
+                title="Analytics"
+                text="Query datasets with filters, metrics, grouping, and history."
+              />
+              <Feature
+                icon={FileDown}
+                title="Reports"
+                text="Build reports, export results, and schedule recurring runs."
+              />
+              <Feature
+                icon={BellRing}
+                title="Alerts"
+                text="Monitor thresholds and notify authorized workspace users."
+              />
+            </div>
+          </div>
+        </section>
+        <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+          <SectionIntro
+            eyebrow="How it works"
+            title="A clear path from data to insight."
+            description="Keep the workflow simple: connect what you have, understand what it says, then share it with the right people."
+          />
+          <div className="mt-12 grid gap-6 md:grid-cols-4">
+            {[
+              ["01", "Connect or import", "Bring in CSV, XLSX, or signed webhook data."],
+              ["02", "Explore", "Query rows with the analytics builder and inspect results."],
+              ["03", "Compose", "Turn useful metrics into dashboards and reports."],
+              [
+                "04",
+                "Share safely",
+                "Use alerts, exports, and tenant-scoped access to distribute insight.",
+              ],
+            ].map(([number, title, text]) => (
+              <div key={number} className="relative border-l-2 border-primary/30 pl-5">
+                <span className="text-sm font-bold text-primary">{number}</span>
+                <h3 className="mt-3 text-lg font-semibold">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section
+          id="data-sources"
+          className="scroll-mt-20 bg-slate-950 px-5 py-20 text-white lg:px-8"
+        >
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-300">
+                Data sources
+              </p>
+              <h2 className="mt-4 text-4xl font-bold tracking-tight">
+                Work with the data you already have.
+              </h2>
+              <p className="mt-5 max-w-lg leading-7 text-slate-300">
+                Use the connectors currently supported by the platform, with ingestion status and
+                field mapping visible inside the tenant workspace.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {sources.map(({ icon: Icon, name }) => (
+                <div key={name} className="rounded-2xl border border-white/15 bg-white/10 p-5">
+                  <Icon className="h-6 w-6 text-teal-300" aria-hidden="true" />
+                  <p className="mt-6 font-semibold text-white">{name}</p>
+                  <p className="mt-1 text-xs text-slate-300">Supported</p>
                 </div>
               ))}
             </div>
-          </section>
-          <section id="data-sources" className="bg-slate-950 px-5 py-20 lg:px-8">
-            <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-300">
-                  Data sources
-                </p>
-                <h2 className="mt-4 text-4xl font-bold tracking-tight">
-                  Work with the data you already have.
-                </h2>
-                <p className="mt-5 max-w-lg leading-7 text-slate-300">
-                  Use the connectors currently supported by the platform, with ingestion status and
-                  field mapping visible inside the tenant workspace.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {sources.map(({ icon: Icon, name, implemented }) => {
-                  const ConnectorIcon = implemented ? Icon : Folder;
-                  const badgeColor = implemented ? "text-teal-300" : "text-muted-foreground";
-                  const badgeBorder = implemented ? "border-white/10" : "border-transparent";
-                  return (
-                    <div key={name} className={`rounded-2xl border border-border bg-white/5 p-5`}>
-                      <ConnectorIcon className={`h-6 w-6 ${badgeColor}`} />
-                      <p className="mt-6 font-semibold">{name}</p>
-                      {implemented ? null : (
-                        <p className="mt-1 text-xs text-slate-400">Coming Soon</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-          <section id="security" className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
-            <SectionIntro
-              eyebrow="Security and access"
-              title="Insight with boundaries built in."
-              description="Analivo keeps workspace access explicit so teams can move quickly without losing control of who can see or change data."
-            />
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              <SecurityItem
-                icon={LockKeyhole}
-                title="Tenant isolation"
-                text="Tenant context is derived from authenticated sessions and enforced across workspace data."
-              />
-              <SecurityItem
-                icon={ShieldCheck}
-                title="Role-based access"
-                text="Permissions govern analytics, connectors, dashboards, reports, alerts, and exports."
-              />
-              <SecurityItem
-                icon={Check}
-                title="Secure account flows"
-                text="Protected sessions and password recovery support safer access. TOTP MFA is available for platform administrators; tenant-user MFA is not yet available."
-              />
-            </div>
-          </section>
-          <section className="mx-5 mb-20 rounded-3xl bg-primary px-6 py-14 text-center text-primary-foreground sm:px-10 lg:mx-auto lg:max-w-7xl">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Make every report more useful.
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-primary-foreground/80">
-              Analivo is ready when your workspace administrator sends an invitation or you create a
-              workspace to get started.
-            </p>
-            <div className="mt-8">
-              <Button asChild size="lg" variant="secondary">
-                <AppLink to={primaryPath}>
-                  {primaryLabel}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </AppLink>
-              </Button>
-            </div>
-          </section>
+          </div>
         </section>
-        <footer className="border-t border-border px-5 py-10 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 sm:grid-cols-[1fr_auto_auto]">
-            <div>
-              <Brand compact />
-              <p className="mt-3 max-w-xs text-sm leading-6 text-muted-foreground">
-                A focused analytics workspace for turning business data into decisions.
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Product</p>
-              <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
-                <a href="#features" className="hover:text-foreground">
-                  Features
-                </a>
-                <a href="#data-sources" className="hover:text-foreground">
-                  Data sources
-                </a>
-                <a href="#security" className="hover:text-foreground">
-                  Security
-                </a>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Workspace</p>
-              <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
-                <AppLink to="/login" className="hover:text-foreground">
-                  Sign in
-                </AppLink>
-                <AppLink to="/register" className="hover:text-foreground">
-                  Create workspace
-                </AppLink>
-              </div>
-            </div>
+        <section id="security" className="scroll-mt-20 mx-auto max-w-7xl px-5 py-20 lg:px-8">
+          <SectionIntro
+            eyebrow="Security and access"
+            title="Insight with boundaries built in."
+            description="Analivo keeps workspace access explicit so teams can move quickly without losing control of who can see or change data."
+          />
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <SecurityItem
+              icon={LockKeyhole}
+              title="Tenant isolation"
+              text="Tenant context is derived from authenticated sessions and enforced across workspace data."
+            />
+            <SecurityItem
+              icon={ShieldCheck}
+              title="Role-based access"
+              text="Permissions govern analytics, connectors, dashboards, reports, alerts, and exports."
+            />
+            <SecurityItem
+              icon={Check}
+              title="Secure account flows"
+              text="Protected sessions and password recovery support safer access. TOTP MFA is available for platform administrators; tenant-user MFA is not yet available."
+            />
           </div>
-          <div className="mx-auto mt-10 max-w-7xl border-t border-border pt-5 text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Analivo. All rights reserved.
+        </section>
+        <section className="mx-5 mb-20 rounded-3xl bg-primary px-6 py-14 text-center text-primary-foreground sm:px-10 lg:mx-auto lg:max-w-7xl">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Make every report more useful.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-primary-foreground/80">
+            Analivo is ready when your workspace administrator sends an invitation or you create a
+            workspace to get started.
+          </p>
+          <div className="mt-8">
+            <Button asChild size="lg" variant="secondary">
+              <AppLink to={primaryPath}>
+                {primaryLabel}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </AppLink>
+            </Button>
           </div>
-        </footer>
+        </section>
         <PublicFooter />
       </main>
     </div>
@@ -363,40 +317,43 @@ function SecurityItem({
 function DashboardPreview() {
   return (
     <div className="relative rounded-3xl border border-border bg-card p-3 shadow-lifted">
-      <div className="rounded-2xl bg-slate-950 p-4 text-white sm:p-5">
+      <div className="rounded-2xl bg-slate-950 p-4 text-white ring-1 ring-white/10 sm:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-400">Workspace overview</p>
+            <p className="text-xs font-medium text-slate-200">Workspace overview</p>
             <p className="mt-1 text-lg font-semibold">Sample layout</p>
           </div>
-          <span className="rounded-lg bg-white/10 px-2 py-1 text-[10px] text-teal-200">
-            Sample view
+          <span className="rounded-lg bg-teal-300/15 px-2 py-1 text-[10px] font-semibold text-teal-200">
+            Demo data
           </span>
         </div>
         <div className="mt-5 grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-white/10 p-3">
-            <p className="text-[10px] text-slate-400">Revenue</p>
+          <div className="rounded-xl border border-white/10 bg-slate-800/80 p-3">
+            <p className="text-[10px] font-medium text-slate-200">Revenue · demo</p>
             <p className="mt-2 text-lg font-semibold">$84.2k</p>
             <p className="mt-1 text-[10px] text-teal-300">+12.8%</p>
           </div>
-          <div className="rounded-xl bg-white/10 p-3">
-            <p className="text-[10px] text-slate-400">Orders</p>
+          <div className="rounded-xl border border-white/10 bg-slate-800/80 p-3">
+            <p className="text-[10px] font-medium text-slate-200">Orders · demo</p>
             <p className="mt-2 text-lg font-semibold">2,481</p>
             <p className="mt-1 text-[10px] text-teal-300">+8.4%</p>
           </div>
-          <div className="rounded-xl bg-white/10 p-3">
-            <p className="text-[10px] text-slate-400">Conversion</p>
+          <div className="rounded-xl border border-white/10 bg-slate-800/80 p-3">
+            <p className="text-[10px] font-medium text-slate-200">Conversion · demo</p>
             <p className="mt-2 text-lg font-semibold">4.82%</p>
             <p className="mt-1 text-[10px] text-amber-300">+1.2%</p>
           </div>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-[1.3fr_.7fr]">
-          <div className="rounded-xl bg-white/10 p-3">
-            <div className="flex justify-between text-[10px] text-slate-400">
+          <div className="rounded-xl border border-white/10 bg-slate-800/80 p-3">
+            <div className="flex justify-between text-[10px] font-medium text-slate-200">
               <span>Trend</span>
               <span>Last 30 days</span>
             </div>
-            <div className="mt-4 flex h-28 items-end gap-1.5">
+            <div
+              className="mt-4 flex h-28 items-end gap-1.5 border-b border-l border-slate-500/70 pl-2"
+              aria-label="Demo trend chart, last 30 days"
+            >
               {[30, 44, 38, 58, 48, 74, 68, 82, 64, 92, 78, 100].map((height, index) => (
                 <div
                   key={index}
@@ -406,8 +363,8 @@ function DashboardPreview() {
               ))}
             </div>
           </div>
-          <div className="rounded-xl bg-white/10 p-3">
-            <p className="text-[10px] text-slate-400">Top segments</p>
+          <div className="rounded-xl border border-white/10 bg-slate-800/80 p-3">
+            <p className="text-[10px] font-medium text-slate-200">Top segments · demo</p>
             <div className="mt-4 space-y-3">
               {[
                 ["Enterprise", "48%"],
@@ -415,7 +372,7 @@ function DashboardPreview() {
                 ["Starter", "21%"],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300">{label}</span>
+                  <span className="text-slate-200">{label}</span>
                   <span className="font-semibold text-teal-200">{value}</span>
                 </div>
               ))}

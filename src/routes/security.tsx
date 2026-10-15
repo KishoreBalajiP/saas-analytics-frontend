@@ -22,7 +22,7 @@ export const Route = createFileRoute("/security")({
         },
         {
           heading: "Disclosure",
-          body: "Add the verified security-reporting email or support channel here. Analivo does not claim SOC 2, ISO 27001, GDPR certification, or an SLA unless the operator has supporting evidence and approved wording.",
+          body: "A public security-reporting email or support channel is not published on this page. Analivo does not claim SOC 2, ISO 27001, GDPR certification, or an SLA.",
         },
       ]}
     />

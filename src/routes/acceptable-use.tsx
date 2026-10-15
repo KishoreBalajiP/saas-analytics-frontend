@@ -18,7 +18,7 @@ export const Route = createFileRoute("/acceptable-use")({
         },
         {
           heading: "Reporting concerns",
-          body: "Report suspected unauthorized access or security issues through the approved support or security contact. Add the verified contact details before publication.",
+          body: "Report suspected unauthorized access or security issues through the support or security channel provided by the operator. No public contact address is published on this page.",
         },
       ]}
     />

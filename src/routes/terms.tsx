@@ -18,11 +18,11 @@ export const Route = createFileRoute("/terms")({
         },
         {
           heading: "Availability and changes",
-          body: "Features may depend on the configuration of the deployment and enabled connectors. Confirm the final service-level, suspension, termination, warranty, and limitation language with qualified counsel.",
+          body: "Features may depend on the configuration of the deployment and enabled connectors. Service levels, suspension, termination, warranty, and limitation terms are not published on this page.",
         },
         {
           heading: "Commercial terms",
-          body: "Any paid plans, prices, taxes, renewal terms, refunds, and payment-provider terms must be confirmed by the operator before this page is treated as final.",
+          body: "Paid plans, prices, taxes, renewal terms, refunds, and payment-provider terms are not published on this page.",
         },
       ]}
     />
