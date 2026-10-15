@@ -28,6 +28,8 @@ export function TenantLoginPage() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [showResend, setShowResend] = useState(false);
   const [resendEmail, setResendEmail] = useState("");
+  const [resendPending, setResendPending] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -79,18 +81,20 @@ export function TenantLoginPage() {
   });
 
   const handleResend = async () => {
+    setResendPending(true);
     try {
-      await authApi.resendVerification(resendEmail);
-      setShowResend(false);
-      toast.info("A verification email has been sent. Check your inbox.");
+      await authApi.resendVerification(resendEmail, tenantSlug.trim());
+      setResendSent(true);
+      toast.info("If the account is awaiting verification, a new link will be sent.");
     } catch {
       toast.error("Could not request verification resend. Please try again later.");
-      setShowResend(true);
+    } finally {
+      setResendPending(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full border-border/80 shadow-lifted">
       <CardHeader>
         <CardTitle>Sign in to your workspace</CardTitle>
         <CardDescription>
@@ -157,19 +161,28 @@ export function TenantLoginPage() {
             </div>
           </div>
           {showResend ? (
-            <div className="space-y-2">
-              <Label htmlFor="resendEmail">Email</Label>
-              <Input
-                id="resendEmail"
-                type="email"
-                defaultValue={resendEmail}
-                readOnly
-                className="bg-transparent border-none text-sm text-foreground w-full rounded-xl py-2 px-3 transition-colors"
-                required
-              />
-              <Button type="button" size="sm" onClick={handleResend} disabled={login.isPending}>
-                {login.isPending ? "Sending…" : "Resend verification"}
-              </Button>
+            <div
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+              role="status"
+            >
+              <p className="font-medium">Email verification required</p>
+              <p className="mt-1 text-amber-900/80">
+                {resendSent
+                  ? "Check your inbox for a fresh link, if this account is still awaiting verification."
+                  : "Your credentials are valid, but this account must be verified before it can sign in."}
+              </p>
+              {!resendSent ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={handleResend}
+                  disabled={resendPending}
+                >
+                  {resendPending ? "Requesting…" : "Resend verification link"}
+                </Button>
+              ) : null}
             </div>
           ) : null}
           <InlineFieldErrors error={login.error} />
@@ -189,6 +202,12 @@ export function TenantLoginPage() {
             New to Analivo?{" "}
             <AppLink to="/register" className="font-medium text-primary hover:underline">
               Get started
+            </AppLink>
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
+            Need access to an existing workspace?{" "}
+            <AppLink to="/request-access" className="font-medium text-primary hover:underline">
+              Request access
             </AppLink>
           </p>
         </form>

@@ -5,6 +5,7 @@ import {
   Building2,
   FileCheck,
   Headphones,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -44,6 +45,13 @@ const ADMIN_NAV = [
     icon: Building2,
     permission: Permissions.IAM_TENANTS_VIEW,
     description: "Manage workspace tenants and members",
+  },
+  {
+    to: "/admin/access-requests",
+    label: "Access requests",
+    description: "Review workspace access requests",
+    icon: Inbox,
+    permission: Permissions.IAM_TENANTS_VIEW,
   },
   {
     to: "/admin/admins",

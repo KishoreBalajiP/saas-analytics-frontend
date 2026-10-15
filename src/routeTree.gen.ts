@@ -32,6 +32,7 @@ import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminAccessLogsRouteImport } from './routes/admin.access-logs'
+import { Route as AdminAccessRequestsRouteImport } from './routes/admin.access-requests'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminComplianceRouteImport } from './routes/admin.compliance'
@@ -171,6 +172,11 @@ const TermsRoute = TermsRouteImport.update({
 const AdminAccessLogsRoute = AdminAccessLogsRouteImport.update({
   id: '/admin/access-logs',
   path: '/admin/access-logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAccessRequestsRoute = AdminAccessRequestsRouteImport.update({
+  id: '/admin/access-requests',
+  path: '/admin/access-requests',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAdminsRoute = AdminAdminsRouteImport.update({
@@ -324,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/terms': typeof TermsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
+  '/admin/access-requests': typeof AdminAccessRequestsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
@@ -372,6 +379,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/terms': typeof TermsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
+  '/admin/access-requests': typeof AdminAccessRequestsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
@@ -423,6 +431,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/terms': typeof TermsRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
+  '/admin/access-requests': typeof AdminAccessRequestsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
@@ -475,6 +484,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/terms'
     | '/admin/access-logs'
+    | '/admin/access-requests'
     | '/admin/admins'
     | '/admin/audit-logs'
     | '/admin/compliance'
@@ -523,6 +533,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/terms'
     | '/admin/access-logs'
+    | '/admin/access-requests'
     | '/admin/admins'
     | '/admin/audit-logs'
     | '/admin/compliance'
@@ -573,6 +584,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/terms'
     | '/admin/access-logs'
+    | '/admin/access-requests'
     | '/admin/admins'
     | '/admin/audit-logs'
     | '/admin/compliance'
@@ -624,6 +636,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TermsRoute: typeof TermsRoute
   AdminAccessLogsRoute: typeof AdminAccessLogsRoute
+  AdminAccessRequestsRoute: typeof AdminAccessRequestsRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminComplianceRoute: typeof AdminComplianceRoute
@@ -800,6 +813,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/access-logs'
       fullPath: '/admin/access-logs'
       preLoaderRoute: typeof AdminAccessLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/access-requests': {
+      id: '/admin/access-requests'
+      path: '/admin/access-requests'
+      fullPath: '/admin/access-requests'
+      preLoaderRoute: typeof AdminAccessRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/admins': {
@@ -1115,6 +1135,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TermsRoute: TermsRoute,
   AdminAccessLogsRoute: AdminAccessLogsRoute,
+  AdminAccessRequestsRoute: AdminAccessRequestsRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminComplianceRoute: AdminComplianceRoute,

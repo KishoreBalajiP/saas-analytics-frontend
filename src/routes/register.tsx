@@ -32,6 +32,8 @@ export function RegistrationPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceSlug, setWorkspaceSlug] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [registeredTenantSlug, setRegisteredTenantSlug] = useState("");
+  const [resendSent, setResendSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [verificationState, setVerificationState] = useState<
     "idle" | "checking" | "verified" | "failed"
@@ -54,6 +56,7 @@ export function RegistrationPage() {
     },
     onSuccess: (result) => {
       setIsSubmitted(true);
+      setRegisteredTenantSlug(result.tenant.slug);
       if (result.verificationSent)
         toast.success("Check your inbox to verify your workspace email.");
       else toast.error("Workspace created, but the verification email could not be delivered.");
@@ -120,6 +123,25 @@ export function RegistrationPage() {
           </div>
           <Button asChild className="w-full">
             <AppLink to="/login">Go to tenant sign in</AppLink>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={resendSent}
+            onClick={async () => {
+              try {
+                await authApi.resendVerification(email, registeredTenantSlug);
+                setResendSent(true);
+                toast.info(
+                  "If this account is still awaiting verification, a fresh link has been sent.",
+                );
+              } catch {
+                toast.error("Could not request verification resend. Please try again later.");
+              }
+            }}
+          >
+            {resendSent ? "Verification link requested" : "Resend verification link"}
           </Button>
         </CardContent>
       </Card>
@@ -293,25 +315,6 @@ export function RegistrationPage() {
                 <AppLink to="/request-access">Request access instead</AppLink>
               </Button>
             </div>
-            {isSubmitted === false && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await authApi.resendVerification(email);
-                    toast.info(
-                      "If an account exists for that email, a verification link has been sent. Check your inbox.",
-                    );
-                  } catch {
-                    toast.error("Could not resend verification email. Please try again later.");
-                  }
-                }}
-                className="mt-2 w-full rounded-sm py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
-              >
-                Resend verification link
-              </Button>
-            )}
           </form>
         </CardContent>
       </Card>

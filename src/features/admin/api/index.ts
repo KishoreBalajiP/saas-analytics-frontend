@@ -13,6 +13,37 @@ import type {
 
 const audience = "admin" as const;
 
+export interface AccessRequest {
+  id: string;
+  reference: string;
+  name: string;
+  email: string;
+  workspaceName: string;
+  reason: string;
+  status: string;
+  createdAt: string;
+}
+
+export function listAccessRequests(query: Query = {}) {
+  return requestPaged<AccessRequest>("/access-requests", { audience, query });
+}
+
+export function approveAccessRequest(id: string, tenantId: string, note = "") {
+  return request<Record<string, unknown>>(`/access-requests/${id}/approve`, {
+    method: "POST",
+    audience,
+    body: { tenantId, note, roleName: "Viewer" },
+  });
+}
+
+export function rejectAccessRequest(id: string, note = "") {
+  return request<AccessRequest>(`/access-requests/${id}/reject`, {
+    method: "POST",
+    audience,
+    body: { note },
+  });
+}
+
 /* ------------------------------ Tenants ------------------------------ */
 
 export function listTenants(query: Query = {}) {

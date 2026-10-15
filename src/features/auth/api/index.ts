@@ -90,10 +90,11 @@ export function forgotPassword(tenantSlug: string, email: string) {
   });
 }
 
-export function resendVerification(email: string) {
+export function resendVerification(email: string, tenantSlug: string) {
   return request<{ ok: boolean }>("/auth/resend-verification", {
     method: "POST",
     audience: "public",
+    tenantSlug,
     body: { email },
   });
 }
@@ -133,6 +134,19 @@ export function verifyEmail(token: string) {
     method: "POST",
     audience: "public",
     body: { token },
+  });
+}
+
+export function submitAccessRequest(input: {
+  name: string;
+  email: string;
+  workspaceName: string;
+  reason?: string;
+}) {
+  return request<{ accepted: boolean; reference: string }>("/access-requests", {
+    method: "POST",
+    audience: "public",
+    body: input,
   });
 }
 
