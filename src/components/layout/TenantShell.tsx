@@ -11,8 +11,10 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   MonitorSmartphone,
   Settings,
+  Sigma,
   ShieldAlert,
   User,
 } from "lucide-react";
@@ -33,6 +35,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import * as notificationsApi from "@/features/notifications/api";
 import { useTenantSession } from "@/lib/auth/session";
+import { forgetWorkspace } from "@/lib/auth/workspaceSlug";
+// support: read-only support session banner (roadmap 2.3).
+import { SupportSessionBanner } from "@/features/support/components/SupportSessionBanner";
+import { consumeSupportExit } from "@/lib/auth/supportSession";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -48,12 +54,16 @@ const NAV = [
     icon: Database,
     description: "Connect and manage data sources",
   },
+  // ai-ask: natural-language questions (the page shows a fallback when AI is off).
+  { to: "/ask", label: "Ask", icon: MessageSquare, description: "Ask a question about your data" },
   {
     to: "/analytics",
     label: "Analytics",
     icon: BarChart3,
     description: "Query and explore your data",
   },
+  // ai-catalogue: metric catalogue.
+  { to: "/metrics", label: "Metrics", icon: Sigma, description: "Define business metrics" },
   {
     to: "/dashboards",
     label: "Dashboards",
@@ -95,19 +105,24 @@ export function TenantShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // mfa-tenant: an enrolment-only session may only set up MFA.
+  const mustEnrolMfa = status === "authenticated" && Boolean(me?.mfa?.enrollmentRequired);
   useEffect(() => {
-    if (status === "anonymous") void navigate({ to: "/login" });
-  }, [status, navigate]);
+    // support: an ended support session returns the operator to the console.
+    if (status === "anonymous")
+      void navigate({ to: consumeSupportExit() ? "/admin/support" : "/login" });
+    else if (mustEnrolMfa) void navigate({ to: "/mfa-setup" });
+  }, [status, mustEnrolMfa, navigate]);
 
   const unread = useQuery({
     queryKey: ["notifications", "unread-count"],
     queryFn: notificationsApi.unreadCount,
-    enabled: status === "authenticated",
+    enabled: status === "authenticated" && !mustEnrolMfa,
     refetchInterval: 60_000,
     retry: false,
   });
 
-  if (status !== "authenticated") {
+  if (status !== "authenticated" || mustEnrolMfa) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-8">
         <div className="w-full max-w-sm space-y-3">
@@ -163,6 +178,29 @@ export function TenantShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="border-t border-sidebar-border p-4 text-xs text-sidebar-foreground/70">
           Tenant: <span className="font-medium">{tenantSlug ?? me?.tenantId ?? "—"}</span>
+          {/* onboarding: sign out and pick another workspace on the sign-in page. */}
+          <button
+            type="button"
+            className="mt-1 block font-medium text-primary hover:underline"
+            onClick={async () => {
+              await signOut();
+              forgetWorkspace();
+              void navigate({ to: "/login" });
+            }}
+          >
+            Switch workspace
+          </button>
+          <div className="mt-2 flex gap-2">
+            <AppLink to="/terms" className="hover:underline">
+              Terms
+            </AppLink>
+            <AppLink to="/privacy" className="hover:underline">
+              Privacy
+            </AppLink>
+            <AppLink to="/cookies" className="hover:underline">
+              Cookies
+            </AppLink>
+          </div>
         </div>
       </aside>
 
@@ -216,6 +254,7 @@ export function TenantShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </div>
+        <SupportSessionBanner />
         <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
       </div>
     </div>

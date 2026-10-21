@@ -1,13 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertCircle,
-  CheckCircle,
-  Copy,
-  Database,
-  FileSpreadsheet,
-  Globe,
-  Webhook,
-} from "lucide-react";
+import { AlertCircle, CheckCircle, Database, FileSpreadsheet, Webhook } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
@@ -33,7 +25,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import * as connectorsApi from "@/features/datasets/api";
+import { WebhookSigningInstructions } from "@/features/datasets/components/WebhookSigningInstructions";
 import type { ConnectorType, ConnectorTypeInfo } from "@/lib/api/types";
+import { toastError } from "@/lib/api/quota";
 import { cn } from "@/lib/utils";
 
 const TYPE_ICONS: Record<ConnectorType, React.ComponentType<{ className?: string }>> = {
@@ -81,11 +75,10 @@ export function CreateConnectorDialog({
   // Webhook config
   const [signingSecret, setSigningSecret] = useState("");
   const [toleranceSeconds, setToleranceSeconds] = useState("300");
-  const [requireTimestamp, setRequireTimestamp] = useState(true);
 
   // Webhook result
   const [webhookToken, setWebhookToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [webhookTolerance, setWebhookTolerance] = useState<number | undefined>(undefined);
 
   const queryClient = useQueryClient();
 
@@ -103,9 +96,8 @@ export function CreateConnectorDialog({
       setMongoCollection("");
       setSigningSecret("");
       setToleranceSeconds("300");
-      setRequireTimestamp(true);
       setWebhookToken(null);
-      setCopied(false);
+      setWebhookTolerance(undefined);
     }
   }, [open]);
 
@@ -123,10 +115,11 @@ export function CreateConnectorDialog({
           config = { uri: mongoUri, database: mongoDatabase, collection: mongoCollection };
           break;
         case "webhook":
+          // New webhooks always use timestamp-bound (v2) signatures, so the
+          // timestamp header is always required.
           config = {
             signingSecret,
-            toleranceSeconds: Number(toleranceSeconds) || 300,
-            requireTimestamp,
+            toleranceSeconds: Math.min(Math.max(Number(toleranceSeconds) || 300, 1), 3600),
           };
           break;
         default:
@@ -139,14 +132,13 @@ export function CreateConnectorDialog({
       queryClient.invalidateQueries({ queryKey: ["connectors"] });
       if (connector.type === "webhook" && connector.webhookToken) {
         setWebhookToken(connector.webhookToken);
+        setWebhookTolerance(connector.webhookToleranceSeconds);
         return;
       }
       onCreated();
       onOpenChange(false);
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to create connector");
-    },
+    onError: (error) => toastError(error, "Failed to create connector"),
   });
 
   function validate(): boolean {
@@ -221,33 +213,22 @@ export function CreateConnectorDialog({
         )}
 
         {step === "config" && webhookToken && (
-          <div className="space-y-4">
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto">
             <div className="rounded-lg border border-success/30 bg-success/5 p-4">
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle className="h-4 w-4" />
                 <span className="text-sm font-medium">Webhook created successfully</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Copy your webhook endpoint URL below. It will not be shown again.
+                Send signed JSON deliveries to the endpoint below. You can find these instructions
+                again on the connector&apos;s Webhook tab.
               </p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
-                  /webhooks/{webhookToken}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(`/webhooks/${webhookToken}`);
-                    setCopied(true);
-                    window.setTimeout(() => setCopied(false), 2000);
-                  }}
-                >
-                  <Copy className="mr-1 h-3 w-3" />
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-              </div>
             </div>
+            <WebhookSigningInstructions
+              webhookToken={webhookToken}
+              signatureVersion={2}
+              toleranceSeconds={webhookTolerance}
+            />
             <Button onClick={onCreated} className="w-full">
               Go to connectors
             </Button>
@@ -358,18 +339,20 @@ export function CreateConnectorDialog({
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Tolerance (seconds)</Label>
+                  <Label>Timestamp tolerance (seconds)</Label>
                   <Input
                     type="number"
                     value={toleranceSeconds}
                     onChange={(e) => setToleranceSeconds(e.target.value)}
                     className="w-32"
-                    min={0}
+                    min={1}
+                    max={3600}
                   />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Require timestamp header</Label>
-                  <Switch checked={requireTimestamp} onCheckedChange={setRequireTimestamp} />
+                  <p className="text-xs text-muted-foreground">
+                    Every delivery must carry an <code>X-Saas-Timestamp</code> header and a{" "}
+                    <code>v2=</code> signature over <code>{"<timestamp>.<body>"}</code>. Older
+                    deliveries are rejected.
+                  </p>
                 </div>
               </>
             )}

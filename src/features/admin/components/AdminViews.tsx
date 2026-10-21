@@ -23,14 +23,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import * as adminApi from "@/features/admin/api";
-import type {
-  AccessLog,
-  AuditLog,
-  PaginationMeta,
-  PlatformAdmin,
-  Role,
-  Tenant,
-} from "@/lib/api/types";
+import { JobsMonitoring } from "@/features/admin/components/JobsMonitoring";
+import { AdminAccessActions } from "@/features/admin/security/AdminAccessActions";
+import { MailMonitoring } from "@/features/admin/components/MailMonitoring";
+import { RetentionMonitoring } from "@/features/admin/components/RetentionMonitoring";
+import { TenantLifecycleActions } from "@/features/admin/components/TenantLifecycleActions";
+import {
+  BUILT_IN_PLATFORM_ROLES,
+  adminScopeOf,
+  adminTypeLabel,
+  builtInPlatformRole,
+  describeScope,
+} from "@/features/admin/roles";
+import type { PaginationMeta, Role, Tenant } from "@/lib/api/types";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useAdminSession } from "@/lib/auth/session";
 
@@ -38,10 +43,10 @@ function date(value?: string) {
   return value ? new Date(value).toLocaleString() : "—";
 }
 export function AdminOverview() {
-  const { permissions } = useAdminSession();
-  const canView =
-    hasPermission(permissions, Permissions.MONITORING_VIEW) ||
-    hasPermission(permissions, Permissions.IAM_TENANTS_VIEW);
+  const { permissions, me } = useAdminSession();
+  // GET /admin/dashboard/summary requires iam.tenants.view.
+  const canView = hasPermission(permissions, Permissions.IAM_TENANTS_VIEW);
+  const scope = adminScopeOf(me);
   const query = useQuery({
     queryKey: ["admin", "dashboard", "summary"],
     queryFn: () => adminApi.dashboardSummary({ limit: 10 }),
@@ -69,7 +74,10 @@ export function AdminOverview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-muted-foreground text-sm">Last updated {date(data.generatedAt)}</p>
+        <p className="text-muted-foreground text-sm">
+          Last updated {date(data.generatedAt)}
+          {scope.type === "tenant" ? ` · ${describeScope(scope)} only` : ""}
+        </p>
         <Button
           variant="outline"
           size="sm"
@@ -219,21 +227,6 @@ function TenantTable({
   meta?: PaginationMeta;
   setPage: (page: number) => void;
 }) {
-  const client = useQueryClient();
-  const { permissions } = useAdminSession();
-  const canSuspend = hasPermission(permissions, Permissions.IAM_TENANTS_SUSPEND);
-  const canRestore = hasPermission(permissions, Permissions.IAM_TENANTS_RESTORE);
-  const mutation = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: "suspend" | "restore" }) =>
-      action === "suspend"
-        ? adminApi.suspendTenant(id, "Administrative action")
-        : adminApi.restoreTenant(id),
-    onSuccess: () => {
-      toast.success("Tenant status updated");
-      void client.invalidateQueries({ queryKey: ["admin", "tenants"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Unable to update tenant"),
-  });
   const columns: Column<Tenant & Record<string, unknown>>[] = [
     {
       key: "name",
@@ -272,26 +265,8 @@ function TenantTable({
       key: "actions",
       header: "Actions",
       className: "text-right",
-      render: (tenant) =>
-        tenant.status === "active" && canSuspend ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => mutation.mutate({ id: tenant._id, action: "suspend" })}
-            disabled={mutation.isPending}
-          >
-            Suspend
-          </Button>
-        ) : canRestore ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => mutation.mutate({ id: tenant._id, action: "restore" })}
-            disabled={mutation.isPending}
-          >
-            Restore
-          </Button>
-        ) : null,
+      // Confirmed, reasoned lifecycle actions the admin's permissions allow.
+      render: (tenant) => <TenantLifecycleActions tenant={tenant} size="sm" />,
     },
   ];
   const tableRows = rows as Array<Tenant & Record<string, unknown>>;
@@ -375,6 +350,7 @@ function TenantForm({ onClose }: { onClose: () => void }) {
 export function TenantDetail({ tenantId }: { tenantId: string }) {
   const { permissions } = useAdminSession();
   const canView = hasPermission(permissions, Permissions.IAM_TENANTS_VIEW);
+  const canManageInvitations = hasPermission(permissions, Permissions.IAM_TENANTS_UPDATE);
   const query = useQuery({
     queryKey: ["admin", "tenant", tenantId],
     queryFn: () => adminApi.getTenant(tenantId),
@@ -410,6 +386,9 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
             Status: <Badge className="capitalize">{tenant.status}</Badge>
           </p>
           <p>Created: {date(tenant.createdAt)}</p>
+          <div className="pt-2">
+            <TenantLifecycleActions tenant={tenant} size="sm" />
+          </div>
         </CardContent>
       </Card>
       <AdminRecordCard
@@ -424,17 +403,18 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
         loading={billing.isLoading}
         error={billing.error}
       />
-      <InvitationPanel tenantId={tenantId} canManage={canView} />
+      <InvitationPanel tenantId={tenantId} canManage={canManageInvitations} />
     </div>
   );
 }
 
 function InvitationPanel({ tenantId, canManage }: { tenantId: string; canManage: boolean }) {
   const client = useQueryClient();
+  // Listing needs iam.tenants.view (checked by TenantDetail); resend/revoke
+  // need iam.tenants.update (`canManage`).
   const query = useQuery({
     queryKey: ["admin", "tenant", tenantId, "invitations"],
     queryFn: () => adminApi.listTenantInvitations(tenantId, { page: 1, limit: 20 }),
-    enabled: canManage,
   });
   const resend = useMutation({
     mutationFn: (invitationId: string) => adminApi.resendTenantInvitation(tenantId, invitationId),
@@ -479,7 +459,7 @@ function InvitationPanel({ tenantId, canManage }: { tenantId: string; canManage:
                     {invitation.expiresAt ? ` · expires ${date(invitation.expiresAt)}` : ""}
                   </p>
                 </div>
-                {invitation.status === "pending" && (
+                {invitation.status === "pending" && canManage && (
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -607,13 +587,18 @@ export function AdminList() {
               <Card key={adminRow._id}>
                 <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
                   <div>
-                    <div className="font-medium">{adminRow.name || adminRow.email}</div>
+                    <div className="font-medium">
+                      {adminRow.name || adminRow.profile?.name || adminRow.email}
+                    </div>
                     <div className="text-muted-foreground text-sm">
-                      {adminRow.email} · {adminRow.adminType}
+                      {adminRow.email} · {adminTypeLabel(adminRow.adminType)}
                       {adminRow.status ? ` · ${adminRow.status}` : ""}
+                      {` · ${describeScope(adminScopeOf(adminRow))}`}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {/* adminauth: invitation + credential reset actions */}
+                    <AdminAccessActions admin={adminRow} isSelf={isSelf} />
                     {canSuspend && !isSuspended && !isSelf ? (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -711,204 +696,57 @@ export function RoleList() {
   if (query.isError)
     return <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Roles" />;
   const roles = query.data?.data ?? [];
-  return roles.length ? (
-    <div className="space-y-2">
-      {roles.map((role) => (
-        <Card key={role._id}>
-          <CardContent className="flex flex-wrap justify-between gap-2 p-4">
-            <span className="font-medium">{role.name}</span>
-            <span className="text-sm text-muted-foreground">
-              {role.scope} · {role.permissions?.length ?? 0} permissions
-            </span>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  ) : (
-    <EmptyState title="No roles" />
-  );
-}
-
-export function AuditLogList() {
-  const { permissions } = useAdminSession();
-  const canView = hasPermission(permissions, Permissions.AUDIT_LOGS_VIEW);
-  const canExport = hasPermission(permissions, Permissions.AUDIT_LOGS_EXPORT);
-  const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [moduleFilter, setModuleFilter] = useState("");
-  const [actionFilter, setActionFilter] = useState("");
-  const [actorTypeFilter, setActorTypeFilter] = useState("");
-  const [exportId, setExportId] = useState<string | null>(null);
-  const query = useQuery({
-    queryKey: ["admin", "audit", page, moduleFilter, actionFilter, actorTypeFilter],
-    queryFn: () => {
-      const queryParams: Record<string, string | number> = { page, limit: 25 };
-      if (moduleFilter.trim()) queryParams["module"] = moduleFilter.trim();
-      if (actionFilter.trim()) queryParams["action"] = actionFilter.trim();
-      if (actorTypeFilter.trim()) queryParams["actorType"] = actorTypeFilter.trim();
-      return adminApi.listAuditLogs(queryParams);
-    },
-    enabled: canView,
-  });
-  const exportMutation = useMutation({
-    mutationFn: () =>
-      adminApi.exportAuditLogs(
-        {
-          ...(moduleFilter.trim() ? { module: moduleFilter.trim() } : {}),
-          ...(actionFilter.trim() ? { action: actionFilter.trim() } : {}),
-          ...(actorTypeFilter.trim() ? { actorType: actorTypeFilter.trim() } : {}),
-        },
-        "json",
-      ),
-    onSuccess: (data) => {
-      toast.success("Export requested");
-      setExportId(String(data.exportId));
-    },
-    onError: (err: Error) => toast.error(`Export failed: ${err.message}`),
-  });
-  const exportStatusQuery = useQuery({
-    queryKey: ["admin", "audit", "export", exportId],
-    queryFn: () => adminApi.auditExportStatus(exportId!),
-    enabled: Boolean(exportId),
-    refetchInterval: (q) => {
-      const status = String((q.state.data as { status?: string } | undefined)?.status ?? "");
-      return status === "completed" || status === "failed" ? false : 2000;
-    },
-  });
-  if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Audit logs" />;
-  if (query.isLoading) return <TableSkeleton rows={6} cols={5} />;
-  if (query.isError)
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Audit logs" />;
-  const rows = query.data?.data ?? [];
-  const meta = query.data?.meta as PaginationMeta | undefined;
-  const columns: Column<AuditLog & Record<string, unknown>>[] = [
-    { key: "actor", header: "Actor", render: (log) => <span>{log.actor?.id ?? "system"}</span> },
-    {
-      key: "action",
-      header: "Action",
-      render: (log) => <code className="text-xs">{log.action}</code>,
-    },
-    { key: "module", header: "Module", render: (log) => <span>{log.module}</span> },
-    {
-      key: "resource",
-      header: "Resource",
-      render: (log) => <span>{log.resource?.type ?? "—"}</span>,
-    },
-    {
-      key: "createdAt",
-      header: "Timestamp",
-      render: (log) => <span className="text-xs text-muted-foreground">{date(log.createdAt)}</span>,
-    },
-  ];
-  const tableRows = rows as Array<AuditLog & Record<string, unknown>>;
+  const builtIn = BUILT_IN_PLATFORM_ROLES.map((definition) => ({
+    definition,
+    role: roles.find((role) => role.name === definition.name && role.builtIn !== false),
+  }));
+  const custom = roles.filter((role) => !builtInPlatformRole(role.name) || role.builtIn === false);
   return (
-    <div className="space-y-4">
-      <form
-        className="flex flex-wrap gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setPage(1);
-          void queryClient.invalidateQueries({ queryKey: ["admin", "audit"] });
-        }}
-      >
-        <Input
-          value={moduleFilter}
-          onChange={(e) => setModuleFilter(e.target.value)}
-          placeholder="Module (e.g. iam.tenants)"
-          aria-label="Filter by module"
-        />
-        <Input
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-          placeholder="Action"
-          aria-label="Filter by action"
-        />
-        <Input
-          value={actorTypeFilter}
-          onChange={(e) => setActorTypeFilter(e.target.value)}
-          placeholder="Actor type (admin|user|service|system)"
-          aria-label="Filter by actor type"
-        />
-        <Button type="submit" variant="outline">
-          <Search className="mr-1 h-4 w-4" /> Filter
-        </Button>
-        {canExport && (
-          <Button
-            type="button"
-            onClick={() => exportMutation.mutate()}
-            disabled={exportMutation.isPending || Boolean(exportId)}
-          >
-            Export JSON
-          </Button>
-        )}
-      </form>
-      {exportId ? (
-        <Card>
-          <CardContent className="p-3 text-sm">
-            Export {exportId}: status ={" "}
-            <span className="font-mono">
-              {String(
-                (exportStatusQuery.data as { status?: string } | undefined)?.status ?? "queued",
-              )}
-            </span>
-          </CardContent>
-        </Card>
-      ) : null}
-      {tableRows.length ? (
-        <DataTable
-          columns={columns}
-          data={tableRows}
-          {...(meta ? { meta } : {})}
-          onPageChange={setPage}
-          getRowId={(log) => String(log["_id"])}
-        />
-      ) : (
-        <EmptyState title="No audit events" />
-      )}
-    </div>
-  );
-}
-
-export function AccessLogList() {
-  const { permissions } = useAdminSession();
-  const canView = hasPermission(permissions, Permissions.ACCESS_LOGS_VIEW);
-  const query = useQuery({
-    queryKey: ["admin", "access-logs"],
-    queryFn: () => adminApi.listAccessLogs({ page: 1, limit: 50 }),
-    enabled: canView,
-  });
-  if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Access logs" />;
-  if (query.isLoading) return <TableSkeleton rows={6} cols={5} />;
-  if (query.isError)
-    return (
-      <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Access logs" />
-    );
-  const rows = query.data?.data ?? [];
-  return rows.length ? (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left">
-            <th className="p-3">Method</th>
-            <th className="p-3">Path</th>
-            <th className="p-3">Status</th>
-            <th className="p-3">Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((log: AccessLog) => (
-            <tr key={log._id} className="border-b">
-              <td className="p-3">{log.method}</td>
-              <td className="p-3 font-mono text-xs">{log.path}</td>
-              <td className="p-3">{log.status}</td>
-              <td className="p-3 text-muted-foreground">{date(log.createdAt)}</td>
-            </tr>
+    <div className="space-y-6">
+      <section className="space-y-2" aria-labelledby="built-in-roles">
+        <h2 id="built-in-roles" className="text-sm font-semibold">
+          Built-in platform roles
+        </h2>
+        <div className="grid gap-2 md:grid-cols-2">
+          {builtIn.map(({ definition, role }) => (
+            <Card key={definition.name} data-testid={`built-in-role-${definition.name}`}>
+              <CardContent className="space-y-1 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">{definition.label}</span>
+                  <Badge variant="secondary">{adminTypeLabel(definition.adminType)} type</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{definition.summary}</p>
+                <p className="text-xs text-muted-foreground">
+                  <code>{definition.name}</code> ·{" "}
+                  {role
+                    ? `${role.permissionCount ?? role.permissions?.length ?? 0} permissions`
+                    : "not provisioned yet (run the permission catalogue migration)"}
+                </p>
+              </CardContent>
+            </Card>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </section>
+      <section className="space-y-2" aria-labelledby="custom-roles">
+        <h2 id="custom-roles" className="text-sm font-semibold">
+          Other roles
+        </h2>
+        {custom.length ? (
+          custom.map((role: Role) => (
+            <Card key={role._id}>
+              <CardContent className="flex flex-wrap justify-between gap-2 p-4">
+                <span className="font-medium">{role.label ?? role.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {role.scope} · {role.permissionCount ?? role.permissions?.length ?? 0} permissions
+                </span>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <EmptyState title="No custom roles" />
+        )}
+      </section>
     </div>
-  ) : (
-    <EmptyState title="No access events" />
   );
 }
 
@@ -921,51 +759,19 @@ export function MonitoringView() {
     enabled: canView,
   });
   if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Monitoring" />;
-  if (query.isLoading) return <TableSkeleton rows={4} cols={2} />;
-  if (query.isError)
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Monitoring" />;
   return (
-    <AdminRecordCard title="Aggregate health" value={query.data} loading={false} error={null} />
-  );
-}
-
-export function SupportLookup() {
-  const { permissions } = useAdminSession();
-  const canLookup = hasPermission(permissions, Permissions.SUPPORT_LOOKUP);
-  const [tenantId, setTenantId] = useState("");
-  const [submitted, setSubmitted] = useState("");
-  const query = useQuery({
-    queryKey: ["admin", "support", submitted],
-    queryFn: () => adminApi.tenantLookups(submitted),
-    enabled: canLookup && Boolean(submitted),
-  });
-  if (!canLookup) return <ErrorState error={{ statusCode: 403 }} resource="Support lookup" />;
-  return (
-    <div className="space-y-4">
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmitted(tenantId.trim());
-        }}
-      >
-        <Input
-          placeholder="Tenant ID"
-          value={tenantId}
-          onChange={(event) => setTenantId(event.target.value)}
-          aria-label="Tenant ID"
-        />
-        <Button type="submit">
-          <Search className="mr-1 h-4 w-4" /> Lookup
-        </Button>
-      </form>
-      {submitted && query.isLoading && <TableSkeleton rows={3} cols={2} />}
-      {submitted && query.isError && (
-        <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Tenant lookup" />
+    <div className="space-y-6">
+      {query.isLoading ? (
+        <TableSkeleton rows={4} cols={2} />
+      ) : query.isError ? (
+        <ErrorState error={query.error} onRetry={() => query.refetch()} resource="Monitoring" />
+      ) : (
+        <AdminRecordCard title="Aggregate health" value={query.data} loading={false} error={null} />
       )}
-      {submitted && query.data && (
-        <AdminRecordCard title="Tenant lookup" value={query.data} loading={false} error={null} />
-      )}
+      <JobsMonitoring />
+      {/* retention: email outbox and data retention panels. */}
+      <MailMonitoring />
+      <RetentionMonitoring />
     </div>
   );
 }

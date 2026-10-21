@@ -253,6 +253,48 @@ describe("request()", () => {
     expect(headers["X-Idempotency-Key"]!.length).toBeGreaterThan(0);
   });
 
+  it("does not send X-Idempotency-Key on public requests (no signed-in actor to scope it to)", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          message: "ok",
+          data: null,
+          timestamp: new Date().toISOString(),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await request("/auth/register", { method: "POST", audience: "public", body: {} });
+
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+    const headers = init?.headers as Record<string, string>;
+    expect(headers["X-Idempotency-Key"]).toBeUndefined();
+  });
+
+  it("uses a caller-supplied idempotency key", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          message: "ok",
+          data: null,
+          timestamp: new Date().toISOString(),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await request("/connectors", { method: "POST", body: {}, idempotencyKey: "order-42" });
+
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+    const headers = init?.headers as Record<string, string>;
+    expect(headers["X-Idempotency-Key"]).toBe("order-42");
+  });
+
   it("does not send X-Idempotency-Key on GET requests", async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(

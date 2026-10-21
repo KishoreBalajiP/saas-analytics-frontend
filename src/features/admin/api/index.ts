@@ -4,12 +4,19 @@ import type {
   AdminType,
   AuditLog,
   ComplianceRequest,
+  ComplianceRequestType,
   Permission,
   PlatformAdmin,
   Role,
   Tenant,
   TenantInvitation,
 } from "@/lib/api/types";
+import type {
+  ImpersonationStart,
+  SupportDiagnostics,
+  SupportGrant,
+  SupportSessionRecord,
+} from "@/features/support/types";
 
 const audience = "admin" as const;
 
@@ -28,11 +35,20 @@ export function listAccessRequests(query: Query = {}) {
   return requestPaged<AccessRequest>("/access-requests", { audience, query });
 }
 
-export function approveAccessRequest(id: string, tenantId: string, note = "") {
+/** Roles an access-request approval may invite with (backend allow-list). */
+export const APPROVABLE_ROLES = ["Viewer", "Manager"] as const;
+export type ApprovableRole = (typeof APPROVABLE_ROLES)[number];
+
+export function approveAccessRequest(
+  id: string,
+  tenantId: string,
+  roleName: ApprovableRole = "Viewer",
+  note = "",
+) {
   return request<Record<string, unknown>>(`/access-requests/${id}/approve`, {
     method: "POST",
     audience,
-    body: { tenantId, note, roleName: "Viewer" },
+    body: { tenantId, note, roleName },
   });
 }
 
@@ -78,16 +94,28 @@ export function suspendTenant(id: string, reason: string) {
   });
 }
 
-export function restoreTenant(id: string) {
-  return request<Tenant>(`/tenants/${id}/restore`, { method: "POST", audience, body: {} });
+export function restoreTenant(id: string, reason?: string) {
+  return request<Tenant>(`/tenants/${id}/restore`, {
+    method: "POST",
+    audience,
+    body: reason ? { reason } : {},
+  });
 }
 
-export function disableTenant(id: string) {
-  return request<Tenant>(`/tenants/${id}/disable`, { method: "POST", audience, body: {} });
+export function disableTenant(id: string, reason?: string) {
+  return request<Tenant>(`/tenants/${id}/disable`, {
+    method: "POST",
+    audience,
+    body: reason ? { reason } : {},
+  });
 }
 
-export function archiveTenant(id: string) {
-  return request<Tenant>(`/tenants/${id}/archive`, { method: "POST", audience, body: {} });
+export function archiveTenant(id: string, reason?: string) {
+  return request<Tenant>(`/tenants/${id}/archive`, {
+    method: "POST",
+    audience,
+    body: reason ? { reason } : {},
+  });
 }
 
 export function initTenant(id: string) {
@@ -173,19 +201,21 @@ export function getAdmin(id: string) {
   return request<PlatformAdmin>(`/admin/admins/${id}`, { audience });
 }
 
+/** @deprecated adminauth: admins are invited; use `inviteAdmin` (./adminAccess). */
 export function createAdmin(body: {
   email: string;
-  password: string;
   name: string;
   adminType: AdminType;
-  scope?: Record<string, unknown>;
+  /** Confine the admin to one tenant (super admins only). */
+  tenantScope?: string;
 }) {
   return request<PlatformAdmin>("/admin/admins", { method: "POST", audience, body });
 }
 
 export function updateAdmin(
   id: string,
-  body: { name?: string; adminType?: AdminType; scope?: Record<string, unknown> },
+  /** `tenantScope: null` clears the scope (platform-wide again). */
+  body: { name?: string; adminType?: AdminType; tenantScope?: string | null },
 ) {
   return request<PlatformAdmin>(`/admin/admins/${id}`, { method: "PATCH", audience, body });
 }
@@ -206,16 +236,29 @@ export function restoreAdmin(id: string) {
   });
 }
 
-export function assignAdminRole(id: string, roleId: string, expiresAt?: string) {
+export function assignAdminRole(
+  id: string,
+  roleId: string,
+  options: { expiresAt?: string; tenantId?: string } = {},
+) {
   return request<unknown>(`/admin/admins/${id}/roles`, {
     method: "POST",
     audience,
-    body: expiresAt ? { roleId, expiresAt } : { roleId },
+    body: {
+      roleId,
+      ...(options.expiresAt ? { expiresAt: options.expiresAt } : {}),
+      ...(options.tenantId ? { tenantId: options.tenantId } : {}),
+    },
   });
 }
 
-export function removeAdminRole(id: string, roleId: string) {
-  return request<unknown>(`/admin/admins/${id}/roles/${roleId}`, { method: "DELETE", audience });
+/** Revoke a role grant; pass `tenantId` to revoke a tenant-scoped grant. */
+export function removeAdminRole(id: string, roleId: string, tenantId?: string) {
+  return request<{ removed: number }>(`/admin/admins/${id}/roles/${roleId}`, {
+    method: "DELETE",
+    audience,
+    ...(tenantId ? { query: { tenantId } } : {}),
+  });
 }
 
 export function adminAudit(id: string, query: Query = {}) {
@@ -319,11 +362,26 @@ export function exportAuditLogs(filters: Record<string, unknown>, format: "json"
   });
 }
 
+/**
+ * Status of an audit / access-log export (`downloadUrl` once completed).
+ * Once `expiresAt` has passed the API answers 410 `EXPORT_EXPIRED` (the file
+ * is deleted): request a new one.
+ */
+export interface ExportStatus {
+  exportId?: string;
+  kind?: "audit" | "access-log";
+  status: "queued" | "processing" | "completed" | "failed" | "expired" | (string & {});
+  format?: "json" | "csv" | (string & {});
+  recordCount?: number;
+  completedAt?: string | null;
+  expiresAt?: string | null;
+  downloadUrl?: string;
+  fileName?: string | null;
+  error?: string | null;
+}
+
 export function auditExportStatus(exportId: string) {
-  return request<{ status: string; url?: string; expiresAt?: string }>(
-    `/audit-logs/export/${exportId}`,
-    { audience },
-  );
+  return request<ExportStatus>(`/audit-logs/export/${exportId}`, { audience });
 }
 
 /* ----------------------------- Access logs ----------------------------- */
@@ -349,10 +407,26 @@ export function exportAccessLogs(filters: Record<string, unknown>, format: "json
 }
 
 export function accessExportStatus(exportId: string) {
-  return request<{ status: string; url?: string; expiresAt?: string }>(
-    `/access-logs/export/${exportId}`,
-    { audience },
-  );
+  return request<ExportStatus>(`/access-logs/export/${exportId}`, { audience });
+}
+
+/** One sign-in attempt (`GET /access-logs/login-attempts`). */
+export interface LoginAttempt {
+  _id: string;
+  actorId?: string | null;
+  actorType: "user" | "admin";
+  email: string;
+  tenantId?: string | null;
+  ip?: string;
+  userAgent?: string;
+  success: boolean;
+  reason: string;
+  occurredAt: string;
+}
+
+/** Every sign-in attempt, newest first (needs `access_logs.view`). */
+export function listLoginAttempts(query: Query = {}) {
+  return requestPaged<LoginAttempt>("/access-logs/login-attempts", { audience, query });
 }
 
 /* ------------------------------ Compliance ------------------------------ */
@@ -365,58 +439,65 @@ export function getComplianceRequest(id: string) {
   return request<ComplianceRequest>(`/compliance/requests/${id}`, { audience });
 }
 
-export function createComplianceRequest(body: {
-  subjectEmail: string;
-  subjectUserId?: string;
-  type: "export" | "delete" | "restrict";
-  notes?: string;
-}) {
-  return request<ComplianceRequest>("/compliance/requests", {
-    method: "POST",
-    audience,
-    body,
-  });
+/** Body of `POST /compliance/requests` (backend `createSchema`). */
+export interface ComplianceRequestInput {
+  subjectId: string;
+  subjectType?: "user" | "tenant";
+  type: ComplianceRequestType;
+  reason: string;
+  subjectEmail?: string;
+  tenantScope?: string[];
 }
 
-export function cancelComplianceRequest(id: string) {
-  return request<ComplianceRequest>(`/compliance/requests/${id}/cancel`, {
+export function createComplianceRequest(body: ComplianceRequestInput) {
+  return request<{ requestId: string; status: string; type: string; subjectId: string }>(
+    "/compliance/requests",
+    { method: "POST", audience, body },
+  );
+}
+
+export function cancelComplianceRequest(id: string, reason?: string) {
+  return request<{ requestId: string; status: string }>(`/compliance/requests/${id}/cancel`, {
     method: "POST",
     audience,
-    body: {},
+    body: reason ? { reason } : {},
   });
 }
 
 /* -------------------------------- Support -------------------------------- */
+// Bodies match backend/src/validators/support.validator.js exactly. Every
+// privileged support action carries a reason (3..500 chars).
 
-export function impersonate(userId: string, reason: string) {
-  return request<Record<string, unknown>>("/support/impersonate", {
+/** Start a read-only support session (needs workspace consent or approved break-glass). */
+export function impersonate(targetUserId: string, reason: string, ticket?: string) {
+  return request<ImpersonationStart>("/support/impersonate", {
+    method: "POST",
+    audience,
+    body: ticket ? { targetUserId, reason, ticket } : { targetUserId, reason },
+  });
+}
+
+export function stopImpersonation(sessionId: string, reason: string) {
+  return request<{ sessionId: string; status: string; stoppedAt: string }>(
+    "/support/impersonate/stop",
+    { method: "POST", audience, body: { sessionId, reason } },
+  );
+}
+
+/** Unlock and email a password reset to an active user. */
+export function recoverAccount(userId: string, reason: string) {
+  return request<Record<string, unknown>>("/support/account/recover", {
     method: "POST",
     audience,
     body: { userId, reason },
   });
 }
 
-export function stopImpersonation(sessionId: string) {
-  return request<unknown>("/support/impersonate/stop", {
-    method: "POST",
-    audience,
-    body: { sessionId },
-  });
-}
-
-export function recoverAccount(email: string, type: "reset" | "unlock") {
-  return request<Record<string, unknown>>("/support/account/recover", {
-    method: "POST",
-    audience,
-    body: { email, type },
-  });
-}
-
-export function revokeUserSessions(userId: string) {
+export function revokeUserSessions(userId: string, reason: string) {
   return request<Record<string, unknown>>("/support/account/revoke-sessions", {
     method: "POST",
     audience,
-    body: { userId },
+    body: { userId, reason },
   });
 }
 
@@ -424,16 +505,78 @@ export function tenantLookups(id: string) {
   return request<Record<string, unknown>>(`/support/tenants/${id}/lookups`, { audience });
 }
 
-export function broadcast(body: {
+/** Tenant-scoped in-app broadcast. */
+export function broadcast(input: {
+  tenantId: string;
   title: string;
-  body: string;
-  audience: { tenantId?: string; roles?: string[] };
+  body?: string;
+  reason: string;
 }) {
+  const body: { tenantId: string; title: string; reason: string; body?: string } = {
+    tenantId: input.tenantId,
+    title: input.title,
+    reason: input.reason,
+  };
+  if (input.body) body.body = input.body;
   return request<Record<string, unknown>>("/support/notifications/broadcast", {
     method: "POST",
     audience,
     body,
   });
+}
+
+/** Sanitised operational diagnostics for one workspace (`support.view`). */
+export function tenantDiagnostics(tenantId: string) {
+  return request<SupportDiagnostics>(
+    `/support/tenants/${encodeURIComponent(tenantId)}/diagnostics`,
+    { audience },
+  );
+}
+
+/** Consent and break-glass grants (`support.view`; scoped admins see their tenant). */
+export function listSupportGrants(query: Query = {}) {
+  return requestPaged<SupportGrant>("/support/access-grants", { audience, query });
+}
+
+/** Ask for break-glass access to a workspace (`support.configure`). */
+export function requestBreakGlass(tenantId: string, reason: string, ticket?: string) {
+  return request<SupportGrant>("/support/access-grants/break-glass", {
+    method: "POST",
+    audience,
+    body: ticket ? { tenantId, reason, ticket } : { tenantId, reason },
+  });
+}
+
+/** Approve a pending break-glass request (`support.approve`, a different super admin). */
+export function approveBreakGlass(grantId: string, reason: string) {
+  return request<SupportGrant>(`/support/access-grants/${encodeURIComponent(grantId)}/approve`, {
+    method: "POST",
+    audience,
+    body: { reason },
+  });
+}
+
+/** Deny a pending break-glass request (`support.approve`). */
+export function denyBreakGlass(grantId: string, reason: string) {
+  return request<SupportGrant>(`/support/access-grants/${encodeURIComponent(grantId)}/deny`, {
+    method: "POST",
+    audience,
+    body: { reason },
+  });
+}
+
+/** Give up a grant early; ends its sessions (`support.configure`). */
+export function revokeSupportGrant(grantId: string, reason: string) {
+  return request<SupportGrant>(`/support/access-grants/${encodeURIComponent(grantId)}/revoke`, {
+    method: "POST",
+    audience,
+    body: { reason },
+  });
+}
+
+/** Support sessions (`support.view`). */
+export function listSupportSessions(query: Query = {}) {
+  return requestPaged<SupportSessionRecord>("/support/impersonations", { audience, query });
 }
 
 /* ------------------------------ Monitoring ------------------------------ */
@@ -451,6 +594,174 @@ export function healthAggregate() {
 
 export function metrics() {
   return request<Record<string, unknown>>("/monitoring/metrics", { audience });
+}
+
+export type JobRunStatus = "running" | "succeeded" | "failed" | "abandoned";
+
+/** One scheduled-job execution (GET /monitoring/jobs/runs). */
+export interface JobRun {
+  id: string;
+  job: string;
+  instanceId: string | null;
+  trigger: "schedule" | "manual";
+  status: JobRunStatus;
+  startedAt: string | null;
+  finishedAt: string | null;
+  durationMs: number | null;
+  counts: Record<string, number> | null;
+  error: { code?: string | null; message?: string | null } | null;
+}
+
+export interface SchedulerJobHealth {
+  name: string;
+  cronExpression: string;
+  enabled: boolean;
+  intervalMs: number | null;
+  overdue: boolean;
+  lastRun: JobRun | null;
+  lastSuccessAt: string | null;
+  lastFailure: JobRun | null;
+}
+
+export interface SchedulerHealth {
+  status: "ok" | "degraded" | "disabled";
+  enabled: boolean;
+  lastTickAt: string | null;
+  process?: { role?: string; instanceId?: string; running?: boolean };
+  jobs: SchedulerJobHealth[];
+}
+
+export interface QueueStats {
+  name: string;
+  status: "ok" | "down" | "idle";
+  transport?: string;
+  initialised?: boolean;
+  waiting?: number;
+  active?: number;
+  delayed?: number;
+  failed?: number;
+  completed?: number;
+  consuming?: boolean;
+  error?: string;
+}
+
+export interface QueueHealth {
+  status: "ok" | "degraded" | "down";
+  transport: "bullmq" | "memory";
+  role: string;
+  consumersInProcess: boolean;
+  queues: QueueStats[];
+}
+
+export function schedulerHealth() {
+  return request<SchedulerHealth>("/monitoring/health/scheduler", { audience });
+}
+
+export function queueHealth() {
+  return request<QueueHealth>("/monitoring/health/queue", { audience });
+}
+
+/** Scheduled-job run history, newest first (monitoring.view). */
+export function listJobRuns(query: Query = {}) {
+  return requestPaged<JobRun>("/monitoring/jobs/runs", { audience, query });
+}
+
+/* -------------------- retention: mail, outbox, retention -------------------- */
+
+export type OutboxStatus = "pending" | "sending" | "retrying" | "sent" | "dead";
+
+/** GET /monitoring/health/mail - mail transport + email outbox. */
+export interface MailHealth {
+  status: "ok" | "degraded" | "down" | "disabled";
+  transport: "smtp" | "noop" | "capture" | string;
+  checkedAt: string;
+  verify: {
+    ok: boolean;
+    checkedAt: string;
+    error: { code?: string; message?: string } | null;
+  } | null;
+  sends: {
+    lastSuccessAt: string | null;
+    lastFailureAt: string | null;
+    lastError: { code?: string; message?: string } | null;
+    consecutiveFailures: number;
+  };
+  outbox: Record<OutboxStatus, number> & {
+    backlog: number;
+    oldestDueAt: string | null;
+    backlogAgeMs: number;
+    lastSentAt: string | null;
+  };
+  settings?: { maxAttempts: number; backoffBaseMs: number; backoffMaxMs: number };
+}
+
+/** One outbox message (recipients masked; variables are never returned). */
+export interface OutboxMessage {
+  id: string;
+  tenantId: string | null;
+  to: string[];
+  template: string;
+  status: OutboxStatus;
+  attempts: number;
+  maxAttempts: number | null;
+  nextAttemptAt: string | null;
+  lastAttemptAt: string | null;
+  sentAt: string | null;
+  deadAt: string | null;
+  lastError: { code?: string | null; message?: string | null } | null;
+  transport: string | null;
+  createdAt: string | null;
+}
+
+export interface RetentionPolicy {
+  key: string;
+  collection: string | null;
+  envKey: string | null;
+  days: number | null;
+  enabled: boolean;
+  cutoff: string | null;
+  field: string | null;
+  enforcedBy: "cleanup-job" | "ttl-index" | "cache-ttl" | string;
+  description: string | null;
+  invalid?: string;
+}
+
+/** GET /monitoring/retention - policies, legal holds, last cleanup run. */
+export interface RetentionStatus {
+  checkedAt: string;
+  job: {
+    name: string;
+    enabled: boolean;
+    cronExpression: string | null;
+    dryRun: boolean;
+    batchSize: number;
+    maxBatchesPerRun: number;
+  };
+  legalHoldTenantIds: string[];
+  policies: RetentionPolicy[];
+  lastRun: JobRun | null;
+  lastSuccessAt: string | null;
+}
+
+export function mailHealth() {
+  return request<MailHealth>("/monitoring/health/mail", { audience });
+}
+
+/** Outbox messages, newest first (monitoring.view). */
+export function listOutbox(query: Query = {}) {
+  return requestPaged<OutboxMessage>("/monitoring/outbox", { audience, query });
+}
+
+/** Retry a dead-lettered message (monitoring.update). */
+export function requeueOutboxMessage(id: string) {
+  return request<OutboxMessage>(`/monitoring/outbox/${encodeURIComponent(id)}/requeue`, {
+    method: "POST",
+    audience,
+  });
+}
+
+export function retentionStatus() {
+  return request<RetentionStatus>("/monitoring/retention", { audience });
 }
 
 /* ----------------------------- Dashboard (Phase 5) ----------------------------- */

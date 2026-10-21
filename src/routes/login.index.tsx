@@ -1,4 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+// onboarding: remembered workspace slug.
+import { forgetWorkspace, getRememberedWorkspace } from "@/lib/auth/workspaceSlug";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -12,15 +14,23 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import * as authApi from "@/features/auth/api";
 import { ApiError } from "@/lib/api/client";
+import { CookiesBlockedNotice } from "@/lib/auth/CookiesBlockedNotice";
 import { storeTenantSlug, useTenantSession } from "@/lib/auth/session";
 
+/** A workspace slug may arrive from registration or an accepted invitation. */
+const SLUG_PATTERN = /^[a-z0-9-]{2,50}$/;
+
 export const Route = createFileRoute("/login/")({
+  validateSearch: (search: Record<string, unknown>): { workspace?: string } => {
+    const workspace = search["workspace"];
+    return typeof workspace === "string" && SLUG_PATTERN.test(workspace) ? { workspace } : {};
+  },
   component: TenantLoginPage,
 });
 
 export function TenantLoginPage() {
   const navigate = useNavigate();
-  const { status, setSession, refetch } = useTenantSession();
+  const { status, setSession, refetch, restoreError } = useTenantSession();
   const [tenantSlug, setTenantSlug] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,13 +46,28 @@ export function TenantLoginPage() {
     if (status === "authenticated") void navigate({ to: "/dashboard" });
   }, [status, navigate]);
 
+  // Prefill the slug handed over by registration or invitation acceptance.
+  useEffect(() => {
+    const workspace = new URLSearchParams(window.location.search).get("workspace");
+    if (workspace && SLUG_PATTERN.test(workspace)) setTenantSlug((current) => current || workspace);
+    // onboarding: otherwise prefill the workspace remembered from the last sign-in.
+    const remembered = getRememberedWorkspace();
+    if (remembered && SLUG_PATTERN.test(remembered))
+      setTenantSlug((current) => current || remembered);
+  }, []);
+
   const login = useMutation({
     mutationFn: async () => {
       const slug = tenantSlug.trim();
       return authApi.loginTenant(slug, {
         email: email.trim(),
         password,
-        ...(mfaToken.trim() ? { mfaToken: mfaToken.trim() } : {}),
+        // mfa-tenant: a 16-character entry is a one-time recovery code.
+        ...(mfaToken.trim()
+          ? mfaToken.trim().length > 6
+            ? { recoveryCode: mfaToken.trim() }
+            : { mfaToken: mfaToken.trim() }
+          : {}),
       });
     },
     onSuccess: async (session) => {
@@ -52,6 +77,15 @@ export function TenantLoginPage() {
         return;
       }
       storeTenantSlug(tenantSlug.trim());
+      if (session?.mfaEnrollmentRequired) {
+        try {
+          setSession(await authApi.tenantMe(), tenantSlug.trim());
+        } catch {
+          await refetch();
+        }
+        void navigate({ to: "/mfa-setup" });
+        return;
+      }
       try {
         const me = await authApi.tenantMe();
         setSession(me, tenantSlug.trim());
@@ -102,6 +136,7 @@ export function TenantLoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {restoreError === "cookies_blocked" ? <CookiesBlockedNotice /> : null}
         <form
           className="space-y-4"
           onSubmit={(event) => {
@@ -119,6 +154,18 @@ export function TenantLoginPage() {
               onChange={(event) => setTenantSlug(event.target.value)}
               required
             />
+            {tenantSlug ? (
+              <button
+                type="button"
+                className="text-xs font-medium text-primary hover:underline"
+                onClick={() => {
+                  forgetWorkspace();
+                  setTenantSlug("");
+                }}
+              >
+                Use a different workspace
+              </button>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Sent as the tenant header on sign-in only. If you don't know your slug,{" "}
               <a href="/register" className="font-medium text-primary hover:underline">
@@ -183,6 +230,19 @@ export function TenantLoginPage() {
                   {resendPending ? "Requesting…" : "Resend verification link"}
                 </Button>
               ) : null}
+            </div>
+          ) : null}
+          {mfaRequired ? (
+            <div className="space-y-2">
+              <Label htmlFor="mfa-code">Authenticator code or recovery code</Label>
+              <Input
+                id="mfa-code"
+                autoComplete="one-time-code"
+                maxLength={40}
+                value={mfaToken}
+                onChange={(event) => setMfaToken(event.target.value)}
+                required
+              />
             </div>
           ) : null}
           <InlineFieldErrors error={login.error} />

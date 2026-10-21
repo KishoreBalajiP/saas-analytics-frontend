@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Copy, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { ErrorState, EmptyState, TableSkeleton } from "@/components/common/states";
-import { WidgetView } from "@/components/common/WidgetView";
 import { DataTable } from "@/components/common/DataTable";
 import {
   AlertDialog,
@@ -24,9 +23,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as dashboardsApi from "@/features/dashboards/api";
 import * as embedApi from "@/features/embed/api";
-import type { DashboardExecutionEntry, EmbedToken, PaginationMeta } from "@/lib/api/types";
+import type { EmbedToken, PaginationMeta } from "@/lib/api/types";
+import { EmbedSettingsCard, ShareLinkCard } from "./EmbedSettings";
+import { parseOrigins, sdkSnippet } from "../snippet";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
+
+/** The backend refuses embed tokens that live for less than a minute. */
+const MIN_EMBED_TTL_SEC = 60;
 
 function date(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "—";
@@ -78,6 +82,8 @@ export function EmbedView() {
         />
       )}
       {createOpen && <EmbedTokenForm onClose={() => setCreateOpen(false)} />}
+      <EmbedSettingsCard />
+      {canCreate && <ShareLinkCard />}
     </div>
   );
 }
@@ -108,6 +114,20 @@ function EmbedTable({
       header: "Name",
       render: (token: EmbedToken) => (
         <span className="font-medium">{token.name || "Unnamed token"}</span>
+      ),
+    },
+    {
+      key: "kind",
+      header: "Type",
+      render: (token: EmbedToken) => (
+        <span className="text-xs">{token.kind === "share" ? "Share link" : "Embed"}</span>
+      ),
+    },
+    {
+      key: "allowedOrigins",
+      header: "Origins",
+      render: (token: EmbedToken) => (
+        <span className="text-xs">{(token.allowedOrigins ?? []).join(", ") || "—"}</span>
       ),
     },
     {
@@ -190,25 +210,30 @@ function EmbedTable({
 function EmbedTokenForm({ onClose }: { onClose: () => void }) {
   const client = useQueryClient();
   const dashboards = useQuery({
-    queryKey: ["dashboards", "list", { limit: 200 }],
-    queryFn: () => dashboardsApi.list({ limit: 200 }),
+    // Only published dashboards can be embedded; the backend rejects others.
+    queryKey: ["dashboards", "list", { limit: 200, status: "published" }],
+    queryFn: () => dashboardsApi.list({ limit: 200, status: "published" }),
   });
   const [dashboardId, setDashboardId] = useState("");
   const [widgetId, setWidgetId] = useState("");
   const [name, setName] = useState("");
   const [ttl, setTtl] = useState("3600");
+  const [origins, setOrigins] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
   const [error, setError] = useState("");
   const mutation = useMutation({
     mutationFn: () => {
       const ttlSec = Number(ttl);
       if (!dashboardId) throw new Error("Dashboard is required.");
-      if (!Number.isInteger(ttlSec) || ttlSec <= 0)
-        throw new Error("TTL must be a positive number of seconds.");
+      if (!Number.isInteger(ttlSec) || ttlSec < MIN_EMBED_TTL_SEC)
+        throw new Error(
+          `Lifetime must be a whole number of at least ${MIN_EMBED_TTL_SEC} seconds.`,
+        );
       return embedApi.create({
         dashboardId,
         ...(widgetId ? { widgetId } : {}),
         ...(name.trim() ? { name: name.trim() } : {}),
+        ...(parseOrigins(origins).length ? { allowedOrigins: parseOrigins(origins) } : {}),
         ttlSec,
       });
     },
@@ -221,7 +246,7 @@ function EmbedTokenForm({ onClose }: { onClose: () => void }) {
   });
   const dashboardRows = dashboards.data?.data ?? [];
   if (secret) {
-    const url = embedApi.embedPublicUrl(secret);
+    const snippet = sdkSnippet(secret);
     return (
       <Card>
         <CardHeader>
@@ -229,7 +254,8 @@ function EmbedTokenForm({ onClose }: { onClose: () => void }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-destructive">
-            Copy this token and URL now. The token is shown once and is not persisted by this page.
+            Copy this token now. It is shown once. In production, mint tokens from your backend with
+            an API key (scope embed:create) and pass them to the SDK.
           </p>
           <div className="flex gap-2">
             <Input readOnly type="password" value={secret} aria-label="One-time embed token" />
@@ -242,18 +268,15 @@ function EmbedTokenForm({ onClose }: { onClose: () => void }) {
               <Copy className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex gap-2">
-            <Input readOnly value={url} aria-label="Public embed URL" />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => void navigator.clipboard?.writeText(url)}
-              aria-label="Copy embed URL"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
-          <EmbedPreview token={secret} />
+          <pre
+            className="overflow-x-auto rounded-md bg-muted p-3 text-xs"
+            aria-label="Embed snippet"
+          >
+            {snippet}
+          </pre>
+          <Button variant="outline" onClick={() => void navigator.clipboard?.writeText(snippet)}>
+            <Copy className="mr-1 h-4 w-4" /> Copy snippet
+          </Button>
           <Button onClick={onClose}>Done</Button>
         </CardContent>
       </Card>
@@ -283,7 +306,9 @@ function EmbedTokenForm({ onClose }: { onClose: () => void }) {
               value={dashboardId}
               onChange={(event) => setDashboardId(event.target.value)}
             >
-              <option value="">Select a dashboard</option>
+              <option value="">
+                {dashboardRows.length ? "Select a published dashboard" : "No published dashboards"}
+              </option>
               {dashboardRows.map((dashboard) => (
                 <option key={dashboard._id} value={dashboard._id}>
                   {dashboard.name}
@@ -296,10 +321,18 @@ function EmbedTokenForm({ onClose }: { onClose: () => void }) {
             <Input value={widgetId} onChange={(event) => setWidgetId(event.target.value)} />
           </Label>
           <Label>
+            Allowed origins (comma separated; defaults to the workspace list)
+            <Input
+              value={origins}
+              placeholder="https://app.example.com"
+              onChange={(event) => setOrigins(event.target.value)}
+            />
+          </Label>
+          <Label>
             Lifetime in seconds
             <Input
               type="number"
-              min="1"
+              min={MIN_EMBED_TTL_SEC}
               value={ttl}
               onChange={(event) => setTtl(event.target.value)}
             />
@@ -320,35 +353,5 @@ function EmbedTokenForm({ onClose }: { onClose: () => void }) {
         </form>
       </CardContent>
     </Card>
-  );
-}
-
-function EmbedPreview({ token }: { token: string }) {
-  const query = useQuery({
-    queryKey: ["embed", "preview"],
-    queryFn: () => embedApi.getEmbed(token),
-    enabled: Boolean(token),
-  });
-  if (query.isLoading) return <TableSkeleton rows={3} cols={2} />;
-  if (query.isError) return <ErrorState error={query.error} resource="Embedded analytics" />;
-  const entries = query.data ?? [];
-  if (!entries.length) return <EmptyState title="No embedded data" />;
-  return (
-    <div className="space-y-3">
-      {entries.map((entry: DashboardExecutionEntry) => (
-        <Card key={entry.widgetId}>
-          <CardHeader>
-            <CardTitle className="text-sm">{entry.name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {entry.error ? (
-              <ErrorState error={new Error(entry.error.message)} resource={entry.name} />
-            ) : (
-              <WidgetView type={entry.type} result={entry.result} />
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
   );
 }

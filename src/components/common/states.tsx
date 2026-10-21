@@ -2,6 +2,7 @@ import { AlertTriangle, Ban, Clock, Inbox, Lock, RefreshCw, ShieldAlert } from "
 import type { ReactNode } from "react";
 
 import { AppLink } from "@/components/common/AppLink";
+import { RequestReference } from "@/components/common/RequestReference";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,7 +83,7 @@ interface ErrorStateProps {
   resource?: string;
 }
 
-/** Distinguishes 401 / 403 / 404 / 422 / 429 / 500 / 501 per the UX spec. */
+/** Distinguishes 401 / 403 / 404 / 410 / 422 / 429 / 500 / 501 per the UX spec. */
 export function ErrorState({ error, onRetry, loginTo, resource }: ErrorStateProps) {
   const api = error instanceof ApiError ? error : null;
   const status =
@@ -110,6 +111,11 @@ export function ErrorState({ error, onRetry, loginTo, resource }: ErrorStateProp
   } else if (status === 404) {
     icon = <Ban className="h-5 w-5 text-muted-foreground" />;
     title = `${resource ?? "Resource"} not found`;
+  } else if (status === 410) {
+    // retention: an export or report file past its download window.
+    icon = <Clock className="h-5 w-5 text-muted-foreground" />;
+    title = `${resource ?? "Resource"} expired`;
+    message = api?.message ?? "This file is no longer available. Request a new one.";
   } else if (status === 422) {
     title = "Validation failed";
   } else if (status === 429) {
@@ -134,6 +140,8 @@ export function ErrorState({ error, onRetry, loginTo, resource }: ErrorStateProp
               ))}
             </ul>
           ) : null}
+          {/* Reference ID of the failed API call (support quotes it). */}
+          <RequestReference requestId={api?.requestId} />
           <div className="mt-4 flex gap-2">
             {onRetry ? (
               <Button size="sm" variant="outline" onClick={onRetry}>

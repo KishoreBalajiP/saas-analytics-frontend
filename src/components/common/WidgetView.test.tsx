@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { WidgetView } from "./WidgetView";
 import type { AnalyticsResult } from "@/lib/api/types";
@@ -151,5 +151,65 @@ describe("WidgetView", () => {
         expect(container.innerHTML.length).toBeGreaterThan(0);
       });
     }
+  });
+});
+
+// vizbuilder: the renderer honours the server-resolved spec.
+describe("WidgetView with a visualization spec", () => {
+  const spec = {
+    type: "table" as const,
+    xField: null,
+    xBucket: null,
+    dimensions: ["region"],
+    measures: ["total"],
+    numberFormat: "integer" as const,
+    currency: null,
+    unit: null,
+    sort: null,
+    limit: null,
+    showOther: false,
+    nullHandling: "skip" as const,
+    pageSize: 2,
+    columns: null,
+  };
+
+  it("pages a table through onPageChange", () => {
+    const onPageChange = vi.fn();
+    render(
+      <WidgetView
+        type="table"
+        onPageChange={onPageChange}
+        result={{
+          rows: [
+            { region: "EU", total: 1.4 },
+            { region: "US", total: 2 },
+          ],
+          columns: ["region", "total"],
+          page: 1,
+          pages: 3,
+          visualization: spec,
+        }}
+      />,
+    );
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it("shows top N of M and excluded values", () => {
+    render(
+      <WidgetView
+        type="kpi"
+        result={{
+          rows: [{ total: 10 }],
+          visualization: { ...spec, type: "kpi", dimensions: [] },
+          excluded: { total: 3 },
+          topN: { limit: 5, of: 12, other: null },
+        }}
+      />,
+    );
+    expect(screen.getByText("Top 5 of 12")).toBeInTheDocument();
+    expect(screen.getByText(/3 non-numeric values excluded from total/)).toBeInTheDocument();
   });
 });

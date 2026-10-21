@@ -137,4 +137,177 @@ describe("DashboardDetailView", () => {
     expect(screen.getByRole("heading", { name: "Sales Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Revenue")).toBeInTheDocument();
   });
+
+  it("lists the field errors of a widget whose query the API rejected", () => {
+    const permissions = ["dashboards.view", "analytics.view"];
+    mockedUseTenantSession.mockReturnValue({
+      status: "authenticated",
+      me: { id: "u1", email: "t@t.com", permissions },
+      tenantSlug: "acme",
+      permissions,
+      hasPermission: (permission: string) => permissions.includes(permission),
+      refetch: vi.fn(),
+      setSession: vi.fn(),
+      signOut: vi.fn(),
+    });
+    const widget = { _id: "w1", name: "Revenue", type: "kpi", datasetId: "d1" };
+    mockedUseQuery.mockImplementation((options) => {
+      const key = options.queryKey as string[] | undefined;
+      const base = {
+        isLoading: false,
+        isFetching: false,
+        isError: false,
+        refetch: async () => undefined,
+      };
+      if (key?.[1] === "detail") {
+        return {
+          ...base,
+          data: { _id: "dash_123", name: "Sales", status: "draft", widgets: [widget] },
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      if (key?.[2] === "widgets") {
+        return {
+          ...base,
+          data: { data: [widget], meta: { page: 1, limit: 25, total: 1, pages: 1 } },
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      if (key?.[1] === "execution") {
+        return {
+          ...base,
+          data: [
+            {
+              widgetId: "w1",
+              name: "Revenue",
+              type: "kpi",
+              status: "error",
+              error: {
+                message: "Invalid analytics query",
+                code: "INVALID_QUERY",
+                errors: [{ field: "dateRange.field", message: "is required" }],
+              },
+            },
+          ],
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      return base as unknown as ReturnType<typeof useQuery>;
+    });
+
+    render(<DashboardDetailView dashboardId="dash_123" />);
+    expect(screen.getByText("dateRange.field")).toBeInTheDocument();
+    expect(screen.getByText(/is required/)).toBeInTheDocument();
+  });
+
+  it("tells viewers which default date range the dashboard applies", () => {
+    const permissions = ["dashboards.view", "analytics.view"];
+    mockedUseTenantSession.mockReturnValue({
+      status: "authenticated",
+      me: { id: "u1", email: "t@t.com", permissions },
+      tenantSlug: "acme",
+      permissions,
+      hasPermission: (permission: string) => permissions.includes(permission),
+      refetch: vi.fn(),
+      setSession: vi.fn(),
+      signOut: vi.fn(),
+    });
+    mockedUseQuery.mockImplementation((options) => {
+      const key = options.queryKey as string[] | undefined;
+      const base = {
+        isLoading: false,
+        isFetching: false,
+        isError: false,
+        refetch: async () => undefined,
+      };
+      if (key?.[1] === "detail") {
+        return {
+          ...base,
+          data: {
+            _id: "dash_123",
+            name: "Sales",
+            status: "draft",
+            widgets: [],
+            filters: { dateRange: { field: "order_date", preset: "last_month" } },
+          },
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      if (key?.[2] === "widgets") {
+        return {
+          ...base,
+          data: { data: [], meta: { page: 1, limit: 25, total: 0, pages: 0 } },
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      return { ...base, data: [] } as unknown as ReturnType<typeof useQuery>;
+    });
+
+    render(<DashboardDetailView dashboardId="dash_123" />);
+    expect(screen.getByText("Default date range: Last month on order_date")).toBeInTheDocument();
+  });
+
+  it("shows a broken state for a widget whose dataset was deleted", () => {
+    const permissions = ["dashboards.view", "analytics.view"];
+    mockedUseTenantSession.mockReturnValue({
+      status: "authenticated",
+      me: { id: "u1", email: "t@t.com", permissions },
+      tenantSlug: "acme",
+      permissions,
+      hasPermission: (permission: string) => permissions.includes(permission),
+      refetch: vi.fn(),
+      setSession: vi.fn(),
+      signOut: vi.fn(),
+    });
+    const widgets = [
+      {
+        _id: "w1",
+        name: "Revenue",
+        type: "kpi",
+        datasetId: "d1",
+        brokenAt: "2026-10-20T00:00:00.000Z",
+        brokenReason: "CONNECTOR_DELETED",
+      },
+      { _id: "w2", name: "Orders", type: "kpi", datasetId: "d2", brokenAt: null },
+    ];
+    mockedUseQuery.mockImplementation((options) => {
+      const key = options.queryKey as string[] | undefined;
+      const base = {
+        isLoading: false,
+        isFetching: false,
+        isError: false,
+        refetch: async () => undefined,
+      };
+      if (key?.[0] === "dashboards" && key?.[1] === "detail") {
+        return {
+          ...base,
+          data: { _id: "dash_1", name: "Ops", status: "draft" },
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      if (key?.[0] === "dashboards" && key?.[2] === "widgets") {
+        return {
+          ...base,
+          data: { data: widgets, meta: { page: 1, limit: 25, total: 2, pages: 1 } },
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      if (key?.[0] === "dashboards" && key?.[1] === "execution") {
+        return {
+          ...base,
+          data: [
+            {
+              widgetId: "w1",
+              name: "Revenue",
+              type: "kpi",
+              status: "error",
+              error: { message: "widget dataset must be a connector owned by the tenant" },
+            },
+            { widgetId: "w2", name: "Orders", type: "kpi", result: { rows: [{ n: 3 }] } },
+          ],
+        } as unknown as ReturnType<typeof useQuery>;
+      }
+      return base as unknown as ReturnType<typeof useQuery>;
+    });
+
+    render(<DashboardDetailView dashboardId="dash_1" />);
+    expect(screen.getByText("Broken")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("This widget is broken");
+    expect(screen.getByText(/dataset it reads from was deleted/)).toBeInTheDocument();
+    // The raw execution error is replaced by the broken state.
+    expect(screen.queryByText(/must be a connector owned by the tenant/)).toBeNull();
+  });
 });

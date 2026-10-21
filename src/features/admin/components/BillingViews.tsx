@@ -645,6 +645,8 @@ function SetStateButton({
 
 export function AdminOverridesView() {
   const { permissions } = useAdminSession();
+  // Reads need billing.entitlements.view; revoking needs .override.
+  const canView = hasPermission(permissions, Permissions.BILLING_ENTITLEMENTS_VIEW);
   const canOverride = hasPermission(permissions, Permissions.BILLING_ENTITLEMENTS_OVERRIDE);
   const queryClient = useQueryClient();
   const [includeRevoked, setIncludeRevoked] = useState(false);
@@ -652,10 +654,10 @@ export function AdminOverridesView() {
   const overrides = useQuery({
     queryKey: ["admin", "overrides", { includeRevoked }],
     queryFn: () => listAllOverrides({ includeRevoked, limit: 100 }),
-    enabled: canOverride,
+    enabled: canView,
   });
 
-  if (!canOverride) {
+  if (!canView) {
     return <ErrorState error={{ statusCode: 403 }} resource="Entitlement overrides" />;
   }
   if (overrides.isLoading) return <TableSkeleton rows={6} cols={3} />;
@@ -689,6 +691,7 @@ export function AdminOverridesView() {
             <OverrideRow
               key={o.id}
               override={o}
+              canRevoke={canOverride}
               onChanged={() => queryClient.invalidateQueries({ queryKey: ["admin", "overrides"] })}
             />
           ))}
@@ -698,7 +701,15 @@ export function AdminOverridesView() {
   );
 }
 
-function OverrideRow({ override, onChanged }: { override: Override; onChanged: () => void }) {
+function OverrideRow({
+  override,
+  onChanged,
+  canRevoke,
+}: {
+  override: Override;
+  onChanged: () => void;
+  canRevoke: boolean;
+}) {
   const revoke = useMutation({
     mutationFn: () => revokeOverride(override.id, { reason: "Admin revoke" }),
     onSuccess: () => {
@@ -738,7 +749,7 @@ function OverrideRow({ override, onChanged }: { override: Override; onChanged: (
           <span className="text-muted-foreground">Granted by: </span>
           {override.grantedBy}
         </div>
-        {!override.revokedAt ? (
+        {!override.revokedAt && canRevoke ? (
           <Button size="sm" variant="outline" onClick={() => revoke.mutate()}>
             Revoke
           </Button>

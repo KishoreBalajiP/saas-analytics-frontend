@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LEGAL_DOCUMENT_VERSION } from "@/content/legal/version";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 
 import { AppLink } from "@/components/common/AppLink";
 import { Brand } from "@/components/common/Brand";
+import { InlineFieldErrors } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +21,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import * as authApi from "@/features/auth/api";
+import { ApiError } from "@/lib/api/client";
+
+/** Mirrors the backend register schema (lowercase letters, digits, hyphens; 2-50). */
+const WORKSPACE_SLUG_PATTERN = "[a-z0-9-]{2,50}";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "Join a workspace - Analivo" }] }),
@@ -31,8 +37,11 @@ export function RegistrationPage() {
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceSlug, setWorkspaceSlug] = useState("");
+  // onboarding: Terms/Privacy consent.
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [registeredTenantSlug, setRegisteredTenantSlug] = useState("");
+  const [verificationSent, setVerificationSent] = useState(true);
   const [resendSent, setResendSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [verificationState, setVerificationState] = useState<
@@ -49,6 +58,8 @@ export function RegistrationPage() {
         email: email.trim(),
         password,
         workspaceName: workspaceName.trim(),
+        acceptTerms,
+        termsVersion: LEGAL_DOCUMENT_VERSION,
       };
       const normalizedSlug = workspaceSlug.trim();
       if (normalizedSlug) payload.workspaceSlug = normalizedSlug;
@@ -57,22 +68,21 @@ export function RegistrationPage() {
     onSuccess: (result) => {
       setIsSubmitted(true);
       setRegisteredTenantSlug(result.tenant.slug);
+      setVerificationSent(Boolean(result.verificationSent));
       if (result.verificationSent)
         toast.success("Check your inbox to verify your workspace email.");
       else toast.error("Workspace created, but the verification email could not be delivered.");
     },
     onError: (error) => {
-      if (error instanceof Error || (typeof error === "object" && error !== null)) {
-        if ((error as { code?: string })?.code === "WORKSPACE_SLUG_TAKEN") {
-          toast.error(
-            'This workspace URL is already taken. If this is your existing workspace, <a href="/login" target="_blank" rel="noopener">sign in</a>.',
-          );
-          return;
-        }
-        toast.error(error.message ?? "Unable to create your workspace.");
+      if (error instanceof ApiError && error.code === "WORKSPACE_SLUG_TAKEN") {
+        toast.error(
+          "This workspace URL is already taken. Choose another, or sign in if it is your workspace.",
+        );
         return;
       }
-      toast.error("Unable to create your workspace.");
+      // Field-level validation errors render inline under the form.
+      if (error instanceof ApiError && error.errors?.length) return;
+      toast.error(error instanceof Error ? error.message : "Unable to create your workspace.");
     },
   });
 
@@ -112,17 +122,31 @@ export function RegistrationPage() {
           </div>
           <CardTitle>Verify your email</CardTitle>
           <CardDescription>
-            We sent a confirmation link to your inbox. Complete verification to activate your
-            account.
+            {verificationSent
+              ? "We sent a confirmation link to your inbox. Complete verification to activate your account."
+              : "Your workspace was created, but we could not send the confirmation email. Request a new link below."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm leading-6 text-muted-foreground">
-            Your workspace is pending email verification. The link expires in 15 minutes and can
-            only be used once.
+          <div
+            className="rounded-lg border border-border bg-muted/40 p-4 text-sm leading-6 text-muted-foreground"
+            role="status"
+          >
+            Your workspace is pending email verification. A verification link expires in 15 minutes
+            and can only be used once.
           </div>
+          {registeredTenantSlug ? (
+            <p className="text-sm">
+              Workspace slug: <span className="font-semibold">{registeredTenantSlug}</span>
+            </p>
+          ) : null}
           <Button asChild className="w-full">
-            <AppLink to="/login">Go to tenant sign in</AppLink>
+            <AppLink
+              to="/login"
+              {...(registeredTenantSlug ? { search: { workspace: registeredTenantSlug } } : {})}
+            >
+              Go to tenant sign in
+            </AppLink>
           </Button>
           <Button
             type="button"
@@ -193,7 +217,9 @@ export function RegistrationPage() {
             </p>
           ) : null}
           <Button asChild className="w-full">
-            <AppLink to="/login">Continue to sign in</AppLink>
+            <AppLink to="/login" {...(verifiedSlug ? { search: { workspace: verifiedSlug } } : {})}>
+              Continue to sign in
+            </AppLink>
           </Button>
           {verificationState === "failed" ? (
             <Button asChild variant="outline" className="w-full">
@@ -234,6 +260,8 @@ export function RegistrationPage() {
                 id="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                minLength={2}
+                maxLength={120}
                 required
               />
             </div>
@@ -253,6 +281,8 @@ export function RegistrationPage() {
                 id="workspaceName"
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
+                minLength={2}
+                maxLength={80}
                 required
               />
             </div>
@@ -265,12 +295,17 @@ export function RegistrationPage() {
                 <Input
                   id="workspaceSlug"
                   value={workspaceSlug}
-                  onChange={(e) => setWorkspaceSlug(e.target.value)}
+                  onChange={(e) => setWorkspaceSlug(e.target.value.toLowerCase())}
+                  pattern={WORKSPACE_SLUG_PATTERN}
+                  maxLength={50}
+                  title="2 to 50 lowercase letters, numbers, or hyphens"
+                  aria-describedby="workspaceSlug-help"
                   placeholder={workspaceName ? "your-workspace" : undefined}
                   className="flex-1 rounded-xl border border-border py-4 px-3 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
                 />
-                <p className="text-xs text-muted-foreground">
-                  slug can only contain lowercase letters, numbers, and hyphens
+                <p id="workspaceSlug-help" className="text-xs text-muted-foreground">
+                  2 to 50 lowercase letters, numbers, and hyphens. Leave blank to derive it from the
+                  workspace name.
                 </p>
               </div>
             </div>
@@ -297,6 +332,28 @@ export function RegistrationPage() {
                 </button>
               </div>
             </div>
+            <div className="flex items-start gap-2 text-sm">
+              <input
+                id="acceptTerms"
+                type="checkbox"
+                className="mt-1"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                required
+              />
+              <Label htmlFor="acceptTerms" className="font-normal leading-6">
+                I accept the{" "}
+                <AppLink to="/terms" className="text-primary hover:underline">
+                  Terms of Service
+                </AppLink>{" "}
+                and the{" "}
+                <AppLink to="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </AppLink>{" "}
+                (drafts pending legal review).
+              </Label>
+            </div>
+            <InlineFieldErrors error={mutation.error} />
             <Button
               type="submit"
               className="w-full rounded-xl py-3 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"

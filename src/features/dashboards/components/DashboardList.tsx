@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import * as dashboardsApi from "@/features/dashboards/api";
 import type { Dashboard, PaginationMeta } from "@/lib/api/types";
+import { errorMessage } from "@/lib/api/quota";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
 
@@ -223,8 +224,7 @@ function DashboardFormDialog({
       onOpenChange(false);
       void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
-    onError: (cause) =>
-      setError(cause instanceof Error ? cause.message : "Unable to create dashboard"),
+    onError: (cause) => setError(errorMessage(cause, "Unable to create dashboard")),
   });
 
   return (

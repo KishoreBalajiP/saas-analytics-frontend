@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DashboardDetailView } from "@/features/dashboards/components/DashboardDetailView";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TenantPortal } from "@/components/layout/TenantPortal";
+// ai-insights: insight feed per dashboard.
+import { InsightFeed } from "@/features/insights/components/InsightFeed";
 
 export const Route = createFileRoute("/dashboards/$dashboardId")({
   head: () => ({ meta: [{ title: "Dashboard — Analytics Console" }] }),
@@ -22,6 +24,7 @@ function DashboardDetailPage() {
           { label: "Overview" },
         ]}
       />
+      <InsightFeed dashboardId={dashboardId} />
       <DashboardDetailView dashboardId={dashboardId} />
     </TenantPortal>
   );

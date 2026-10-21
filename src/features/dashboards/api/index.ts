@@ -4,6 +4,10 @@ import type {
   AnalyticsResult,
   Dashboard,
   DashboardExecutionEntry,
+  DashboardShare,
+  DashboardSharing,
+  DatasetSchema,
+  VisualizationSpec,
   Widget,
   WidgetType,
 } from "@/lib/api/types";
@@ -37,6 +41,7 @@ export function update(
     layout?: Record<string, unknown>;
     filters?: Record<string, unknown>;
     refresh?: Record<string, unknown>;
+    visibility?: "workspace" | "restricted";
   },
 ) {
   return request<Dashboard>(`/dashboards/${id}`, { method: "PATCH", body });
@@ -50,8 +55,20 @@ export function duplicate(id: string) {
   return request<Dashboard>(`/dashboards/${id}/duplicate`, { method: "POST", body: {} });
 }
 
-export function share(id: string, body: { email: string; role: "viewer"; expiresAt?: string }) {
-  return request<Dashboard>(`/dashboards/${id}/share`, { method: "POST", body });
+// vizbuilder: share with a tenant user or role at view or edit level.
+export function share(
+  id: string,
+  body: { principalType: "user" | "role"; principalId: string; level: "view" | "edit" },
+) {
+  return request<DashboardShare>(`/dashboards/${id}/share`, { method: "POST", body });
+}
+
+export function listShares(id: string) {
+  return request<DashboardSharing>(`/dashboards/${id}/shares`);
+}
+
+export function datasetSchema(datasetId: string) {
+  return request<DatasetSchema>(`/dashboards/datasets/${datasetId}/schema`);
 }
 
 export function revokeShare(id: string, entryId: string) {
@@ -79,7 +96,7 @@ export interface WidgetInput {
   type: WidgetType;
   datasetId: string;
   query?: AnalyticsQueryParams;
-  visualization?: Record<string, unknown>;
+  visualization?: VisualizationSpec | Record<string, unknown>;
   position?: { x: number; y: number; w: number; h: number };
 }
 
@@ -100,9 +117,17 @@ export function removeWidget(dashboardId: string, widgetId: string) {
   });
 }
 
-export async function executeWidget(dashboardId: string, widgetId: string) {
-  const payload = await requestFull<AnalyticsResult>(
-    `/dashboards/${dashboardId}/widgets/${widgetId}/execute`,
-  );
+export async function executeWidget(
+  dashboardId: string,
+  widgetId: string,
+  paging: { page?: number; limit?: number } = {},
+) {
+  const query: Query = {};
+  if (paging.page) query["page"] = paging.page;
+  if (paging.limit) query["limit"] = paging.limit;
+  const path = `/dashboards/${dashboardId}/widgets/${widgetId}/execute`;
+  const payload = Object.keys(query).length
+    ? await requestFull<AnalyticsResult>(path, { query })
+    : await requestFull<AnalyticsResult>(path);
   return { result: payload.data, meta: payload.meta ?? {} };
 }

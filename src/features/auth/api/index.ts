@@ -1,10 +1,13 @@
-import { request, setAccessToken } from "@/lib/api/client";
-import type { Me, SessionPayload } from "@/lib/api/types";
+import { announceSignOut, refreshAccessToken, request, setAccessToken } from "@/lib/api/client";
+import type { Me, MfaEnrollmentResult, MfaEnrollmentStart, SessionPayload } from "@/lib/api/types";
+import { rememberSession } from "@/lib/auth/sessionHint";
 
 export interface LoginInput {
   email: string;
   password: string;
   mfaToken?: string;
+  /** Admin portal only: a one-time recovery code instead of `mfaToken`. */
+  recoveryCode?: string;
 }
 
 export async function loginTenant(tenantSlug: string, input: LoginInput) {
@@ -14,7 +17,10 @@ export async function loginTenant(tenantSlug: string, input: LoginInput) {
     tenantSlug,
     body: input,
   });
-  if (data?.accessToken) setAccessToken("tenant", data.accessToken);
+  if (data?.accessToken) {
+    setAccessToken("tenant", data.accessToken);
+    rememberSession("tenant", data.sessionExpiresAt ?? null);
+  }
   return data;
 }
 
@@ -24,28 +30,24 @@ export async function loginAdmin(input: LoginInput) {
     audience: "admin",
     body: input,
   });
-  if (data?.accessToken) setAccessToken("admin", data.accessToken);
+  if (data?.accessToken) {
+    setAccessToken("admin", data.accessToken);
+    rememberSession("admin", data.sessionExpiresAt ?? null);
+  }
   return data;
 }
 
-export async function refreshTenant() {
-  const data = await request<SessionPayload>("/auth/refresh", {
-    method: "POST",
-    audience: "tenant",
-    noRefresh: true,
-  });
-  if (data?.accessToken) setAccessToken("tenant", data.accessToken);
-  return data;
+/**
+ * Restore / extend the tenant session from the HttpOnly refresh cookie.
+ * Single-flight across tabs (see `lib/auth/refreshCoordinator.ts`).
+ */
+export function refreshTenant() {
+  return refreshAccessToken("tenant");
 }
 
-export async function refreshAdmin() {
-  const data = await request<SessionPayload>("/admin-auth/refresh", {
-    method: "POST",
-    audience: "admin",
-    noRefresh: true,
-  });
-  if (data?.accessToken) setAccessToken("admin", data.accessToken);
-  return data;
+/** Admin-portal counterpart of `refreshTenant`. */
+export function refreshAdmin() {
+  return refreshAccessToken("admin");
 }
 
 export async function logoutTenant() {
@@ -53,6 +55,7 @@ export async function logoutTenant() {
     await request<unknown>("/auth/logout", { method: "POST", audience: "tenant" });
   } finally {
     setAccessToken("tenant", null);
+    announceSignOut("tenant");
   }
 }
 
@@ -61,6 +64,7 @@ export async function logoutAdmin() {
     await request<unknown>("/admin-auth/logout", { method: "POST", audience: "admin" });
   } finally {
     setAccessToken("admin", null);
+    announceSignOut("admin");
   }
 }
 
@@ -114,6 +118,9 @@ export function registerWorkspace(input: {
   password: string;
   workspaceName: string;
   workspaceSlug?: string;
+  // onboarding: Terms/Privacy consent and the version shown.
+  acceptTerms: boolean;
+  termsVersion: string;
 }) {
   return request<{
     ok: boolean;
@@ -175,17 +182,53 @@ export function inviteTenantMember(input: { email: string; name?: string; roleNa
   }>("/invitations", { method: "POST", audience: "tenant", body: input });
 }
 
+/** Start admin TOTP enrolment: the secret is returned exactly once. */
 export function enrollMfa() {
-  return request<{ secret: string; otpauthUrl: string; qrCodeDataUrl: string }>(
-    "/admin-auth/mfa/enroll",
-    { method: "POST", audience: "admin" },
-  );
+  return request<MfaEnrollmentStart>("/admin-auth/mfa/enroll", {
+    method: "POST",
+    audience: "admin",
+  });
 }
 
+/**
+ * Confirm admin TOTP enrolment. The response carries the one-time recovery
+ * codes (shown once, never retrievable again).
+ */
 export function verifyMfa(code: string) {
-  return request<{ verified: boolean }>("/admin-auth/mfa/verify", {
+  return request<MfaEnrollmentResult>("/admin-auth/mfa/verify", {
     method: "POST",
     audience: "admin",
     body: { code },
+  });
+}
+
+// onboarding: self-service password change and own sessions.
+export function changePassword(body: { currentPassword: string; newPassword: string }) {
+  return request<{ ok: boolean; sessionsRevoked: number }>("/users/me/password", {
+    method: "POST",
+    audience: "tenant",
+    body,
+  });
+}
+
+export interface OwnSession {
+  sessionId: string;
+  current: boolean;
+  device: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  signedInAt: string | null;
+  lastUsedAt: string | null;
+  impersonated: boolean;
+}
+
+export function listMySessions() {
+  return request<OwnSession[]>("/users/me/sessions", { audience: "tenant" });
+}
+
+export function revokeMySession(sessionId: string) {
+  return request<unknown>(`/users/me/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+    audience: "tenant",
   });
 }

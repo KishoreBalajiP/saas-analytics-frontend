@@ -1,10 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Play, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DataTable, type Column } from "@/components/common/DataTable";
-import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
+import {
+  EmptyState,
+  ErrorState,
+  InlineFieldErrors,
+  TableSkeleton,
+} from "@/components/common/states";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +22,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  BrokenBadge,
+  BrokenDependencyState,
+} from "@/features/datasets/components/BrokenDependency";
+import { isBroken } from "@/features/datasets/lib/brokenDependency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,13 +40,37 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import * as alertsApi from "@/features/alerts/api";
-import type { AlertEvent, AlertRule, PaginationMeta } from "@/lib/api/types";
+import type { AlertEvaluationResult, AlertInput } from "@/features/alerts/api";
+import {
+  GROUP_EVALUATION_LABELS,
+  isGrouped,
+  parseQueryJson,
+  queryOutputs,
+} from "@/features/alerts/lib/metrics";
+import type {
+  AlertEvaluation,
+  AlertEvaluationOutcome,
+  AlertEvent,
+  AlertGroupEvaluation,
+  AlertRule,
+  AnalyticsQueryParams,
+  PaginationMeta,
+} from "@/lib/api/types";
+import { errorMessage, isQuotaExceeded } from "@/lib/api/quota";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
 
 const CONDITIONS = ["gt", "gte", "lt", "lte", "eq", "neq", "between"] as const;
-function date(value?: string) {
+function date(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "—";
+}
+
+function evaluationToast(result: AlertEvaluationResult) {
+  if (result.disabled) return "Alert is disabled";
+  if (result.triggered) return `Alert triggered (value ${result.value ?? "—"})`;
+  if (result.suppressed) return "Condition met, notification suppressed (cooldown)";
+  if (result.noData) return "No data to evaluate";
+  return `Condition not met (value ${result.value ?? "—"})`;
 }
 
 export function AlertsView() {
@@ -44,6 +78,7 @@ export function AlertsView() {
   const canView = hasPermission(permissions, Permissions.ALERTS_VIEW);
   const canCreate = hasPermission(permissions, Permissions.ALERTS_CREATE);
   const canDelete = hasPermission(permissions, Permissions.ALERTS_DELETE);
+  const canEvaluate = hasPermission(permissions, Permissions.ALERTS_EVALUATE);
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const query = useQuery({
@@ -70,6 +105,7 @@ export function AlertsView() {
           {...(meta ? { meta } : {})}
           setPage={setPage}
           canDelete={canDelete}
+          canEvaluate={canEvaluate}
         />
       ) : (
         <EmptyState
@@ -92,11 +128,13 @@ function AlertTable({
   meta,
   setPage,
   canDelete,
+  canEvaluate,
 }: {
   rows: AlertRule[];
   meta?: PaginationMeta;
   setPage: (page: number) => void;
   canDelete: boolean;
+  canEvaluate: boolean;
 }) {
   const client = useQueryClient();
   const [editing, setEditing] = useState<AlertRule | undefined>();
@@ -110,8 +148,10 @@ function AlertTable({
   });
   const evaluate = useMutation({
     mutationFn: (id: string) => alertsApi.evaluate(id),
-    onSuccess: (result) =>
-      toast.success(result.triggered ? "Alert triggered" : "Alert did not trigger"),
+    onSuccess: (result) => {
+      toast.success(evaluationToast(result));
+      void client.invalidateQueries({ queryKey: ["alerts"] });
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Unable to evaluate alert"),
   });
   const update = useMutation({
@@ -120,6 +160,7 @@ function AlertTable({
       toast.success("Alert status updated");
       void client.invalidateQueries({ queryKey: ["alerts"] });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Unable to update alert"),
   });
   const columns: Column<AlertRule>[] = [
     {
@@ -145,10 +186,25 @@ function AlertTable({
       key: "enabled",
       header: "Status",
       render: (r) => (
-        <Badge variant={r.enabled ? "default" : "secondary"}>
-          {r.enabled ? "Enabled" : "Disabled"}
-        </Badge>
+        <span className="flex items-center gap-1.5">
+          <Badge variant={r.enabled ? "default" : "secondary"}>
+            {r.enabled ? "Enabled" : "Disabled"}
+          </Badge>
+          <BrokenBadge entity={r} />
+        </span>
       ),
+    },
+    {
+      key: "lastEvaluation",
+      header: "Last result",
+      render: (r) =>
+        r.lastEvaluation?.outcome ? (
+          <Badge variant={r.lastEvaluation.outcome === "failed" ? "destructive" : "outline"}>
+            {OUTCOME_LABELS[r.lastEvaluation.outcome]}
+          </Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
     },
     {
       key: "nextEvaluationAt",
@@ -165,19 +221,27 @@ function AlertTable({
       className: "text-right",
       render: (r) => (
         <div className="flex justify-end gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => evaluate.mutate(r._id)}
-            disabled={evaluate.isPending}
-          >
-            <Play className="h-3.5 w-3.5" />
-          </Button>
+          {canEvaluate && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => evaluate.mutate(r._id)}
+              disabled={evaluate.isPending}
+              aria-label={`Evaluate ${r.name}`}
+            >
+              <Play className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
             onClick={() => update.mutate(r)}
-            disabled={update.isPending}
+            disabled={update.isPending || (!r.enabled && isBroken(r))}
+            title={
+              !r.enabled && isBroken(r)
+                ? "Point this alert at another dataset or widget before enabling it"
+                : undefined
+            }
           >
             {r.enabled ? "Disable" : "Enable"}
           </Button>
@@ -228,6 +292,40 @@ function AlertTable({
   );
 }
 
+const OUTCOME_LABELS: Record<AlertEvaluationOutcome, string> = {
+  triggered: "Triggered",
+  suppressed: "Suppressed (cooldown)",
+  not_met: "Not met",
+  no_data: "No data",
+  failed: "Failed",
+};
+
+/** Outcome of the most recent evaluation (value, groups, or why it failed). */
+export function LastEvaluation({
+  evaluation,
+}: {
+  evaluation?: AlertEvaluation | null | undefined;
+}) {
+  if (!evaluation?.outcome) return <p className="text-muted-foreground">Not evaluated yet.</p>;
+  const groups =
+    typeof evaluation.groupsEvaluated === "number"
+      ? ` · ${evaluation.groupsMatched ?? 0} of ${evaluation.groupsEvaluated} groups`
+      : "";
+  return (
+    <div>
+      Last evaluation:{" "}
+      <Badge variant={evaluation.outcome === "failed" ? "destructive" : "secondary"}>
+        {OUTCOME_LABELS[evaluation.outcome]}
+      </Badge>{" "}
+      {evaluation.outcome !== "failed" ? `value ${evaluation.value ?? "—"}${groups}` : null}
+      {evaluation.at ? ` · ${date(evaluation.at)}` : null}
+      {evaluation.error ? (
+        <span className="mt-1 block text-xs text-destructive">{evaluation.error}</span>
+      ) : null}
+    </div>
+  );
+}
+
 export function AlertDetail({
   alertId,
   edit = false,
@@ -267,12 +365,26 @@ function AlertSummary({ alert }: { alert: AlertRule }) {
           <CardTitle>{alert.name}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
+          {isBroken(alert) ? (
+            <BrokenDependencyState
+              entity={alert}
+              resource="alert"
+              fixHint="Edit the alert and choose another dataset or widget, then enable it again."
+            />
+          ) : null}
           <p>
             {alert.metric} {alert.condition} {alert.threshold}
+            {alert.condition === "between" ? `–${alert.thresholdHigh ?? ""}` : ""}
+          </p>
+          <p>
+            Grouped results: {GROUP_EVALUATION_LABELS[alert.groupEvaluation ?? "total"]} · Cooldown{" "}
+            {alert.cooldownMinutes ?? 60} min
           </p>
           <p>Status: {alert.enabled ? "Enabled" : "Disabled"}</p>
+          <LastEvaluation evaluation={alert.lastEvaluation} />
           <p>
-            Schedule: {alert.schedule?.cron ?? "—"} ({alert.schedule?.timezone ?? "UTC"})
+            Schedule: {alert.schedule?.cron ?? "—"} (
+            {alert.schedule?.timezone || "workspace time zone"})
           </p>
         </CardContent>
       </Card>
@@ -288,9 +400,10 @@ function AlertSummary({ alert }: { alert: AlertRule }) {
           ) : events.data?.data.length ? (
             <div className="space-y-2">
               {events.data.data.map((event: AlertEvent) => (
-                <div key={event._id} className="flex justify-between border-b py-2 text-sm">
+                <div key={event._id} className="flex justify-between gap-2 border-b py-2 text-sm">
                   <span className="capitalize">{event.status}</span>
-                  <span className="text-muted-foreground">{date(event.triggeredAt)}</span>
+                  <span className="truncate text-muted-foreground">{event.message}</span>
+                  <span className="shrink-0 text-muted-foreground">{date(event.triggeredAt)}</span>
                 </div>
               ))}
             </div>
@@ -303,49 +416,73 @@ function AlertSummary({ alert }: { alert: AlertRule }) {
   );
 }
 
-function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () => void }) {
+const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+
+export function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () => void }) {
   const client = useQueryClient();
   const [name, setName] = useState(alert?.name ?? "");
   const [source, setSource] = useState<"widget" | "query">(alert?.source ?? "query");
-  const [datasetId, setDatasetId] = useState(alert?.datasetId ?? "");
+  const [datasetId, setDatasetId] = useState(
+    alert?.datasetId ??
+      (alert?.query as { datasetId?: string } | null | undefined)?.datasetId ??
+      "",
+  );
   const [dashboardId, setDashboardId] = useState(alert?.dashboardId ?? "");
   const [widgetId, setWidgetId] = useState(alert?.widgetId ?? "");
   const [queryJson, setQueryJson] = useState(
     alert?.query ? JSON.stringify(alert.query, null, 2) : "{}",
   );
-  const [metric, setMetric] = useState(alert?.metric ?? "count");
+  const [metric, setMetric] = useState(alert?.metric ?? "");
+  const [groupEvaluation, setGroupEvaluation] = useState<AlertGroupEvaluation>(
+    alert?.groupEvaluation ?? "total",
+  );
   const [condition, setCondition] = useState<AlertRule["condition"]>(alert?.condition ?? "gt");
   const [threshold, setThreshold] = useState(String(alert?.threshold ?? 0));
   const [thresholdHigh, setThresholdHigh] = useState(String(alert?.thresholdHigh ?? ""));
+  const [cooldown, setCooldown] = useState(String(alert?.cooldownMinutes ?? 60));
   const [error, setError] = useState("");
+  // The API rejects an invalid query with 400 INVALID_QUERY and a metric the
+  // query does not output with 400 ALERT_METRIC_INVALID, both with field errors.
+  const [failure, setFailure] = useState<unknown>(null);
+
+  // The metric must be one of the query's outputs (see features/alerts/lib/metrics).
+  const parsedQuery = useMemo(() => parseQueryJson(queryJson), [queryJson]);
+  const outputs = useMemo(() => queryOutputs(parsedQuery), [parsedQuery]);
+  const queryMetric = outputs.includes(metric) ? metric : (outputs[0] ?? "count");
+  const effectiveMetric = source === "query" ? queryMetric : metric.trim();
+  const showGrouping = source === "widget" || isGrouped(parsedQuery);
+
   const mutation = useMutation({
     mutationFn: () => {
       const low = Number(threshold);
-      if (!name.trim() || !metric.trim() || !Number.isFinite(low))
-        throw new Error("Name, metric, and numeric threshold are required.");
-      if (condition === "between" && !Number.isFinite(Number(thresholdHigh)))
-        throw new Error("Between conditions require a high threshold.");
-      let query: unknown;
+      if (!name.trim() || !Number.isFinite(low))
+        throw new Error("Name and a numeric threshold are required.");
+      if (condition === "between" && !(Number(thresholdHigh) >= low))
+        throw new Error("Between conditions need a high threshold at or above the threshold.");
+      const minutes = Number(cooldown);
+      if (!Number.isInteger(minutes) || minutes < 0)
+        throw new Error("Cooldown must be a whole number of minutes (0 or more).");
+      let query: Record<string, unknown> | undefined;
       if (source === "query") {
-        try {
-          query = JSON.parse(queryJson);
-        } catch {
-          throw new Error("Query must be valid JSON.");
-        }
-        if (!query || typeof query !== "object" || Array.isArray(query) || !("datasetId" in query))
-          throw new Error("Query JSON must include datasetId.");
+        query = parseQueryJson(queryJson);
+        if (!query) throw new Error("Query must be a valid JSON object.");
+        if (datasetId.trim()) query = { ...query, datasetId: datasetId.trim() };
+        if (!query["datasetId"]) throw new Error("A dataset ID is required (field or query JSON).");
       } else if (!dashboardId || !widgetId) {
         throw new Error("Dashboard and widget IDs are required for widget alerts.");
       }
-      const body = {
+      const body: AlertInput = {
         name: name.trim(),
-        metric: metric.trim(),
+        // Widget alerts may leave the metric empty: the widget's first output is used.
+        ...(effectiveMetric ? { metric: effectiveMetric } : {}),
+        groupEvaluation: showGrouping ? groupEvaluation : "total",
         condition,
         threshold: low,
         ...(condition === "between" ? { thresholdHigh: Number(thresholdHigh) } : {}),
+        cooldownMinutes: minutes,
         source,
         ...(source === "query"
-          ? { query: query as import("@/lib/api/types").AnalyticsQueryParams }
+          ? { query: query as AnalyticsQueryParams }
           : { dashboardId, widgetId }),
         enabled: alert?.enabled ?? true,
       };
@@ -354,10 +491,15 @@ function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () => void 
     onSuccess: () => {
       toast.success(alert ? "Alert updated" : "Alert created");
       setError("");
+      setFailure(null);
       onClose();
       void client.invalidateQueries({ queryKey: ["alerts"] });
     },
-    onError: (e) => setError(e instanceof Error ? e.message : "Unable to save alert"),
+    onError: (e) => {
+      setError(errorMessage(e, "Unable to save alert"));
+      // A plan-limit refusal is already one sentence; field errors show inline.
+      setFailure(isQuotaExceeded(e) ? null : e);
+    },
   });
   return (
     <Card>
@@ -388,14 +530,6 @@ function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () => void 
               </SelectContent>
             </Select>
           </Label>
-          <Label>
-            Dataset ID
-            <Input
-              value={datasetId}
-              onChange={(e) => setDatasetId(e.target.value)}
-              disabled={source === "widget"}
-            />
-          </Label>
           {source === "widget" ? (
             <>
               <Label>
@@ -408,19 +542,67 @@ function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () => void 
               </Label>
             </>
           ) : (
-            <Label>
-              Query JSON
-              <Textarea
-                value={queryJson}
-                onChange={(e) => setQueryJson(e.target.value)}
-                className="min-h-28 font-mono text-xs"
-              />
-            </Label>
+            <>
+              <Label>
+                Dataset ID
+                <Input value={datasetId} onChange={(e) => setDatasetId(e.target.value)} />
+              </Label>
+              <Label>
+                Query JSON
+                <Textarea
+                  value={queryJson}
+                  onChange={(e) => setQueryJson(e.target.value)}
+                  className="min-h-28 font-mono text-xs"
+                />
+              </Label>
+            </>
           )}
-          <Label>
-            Metric
-            <Input value={metric} onChange={(e) => setMetric(e.target.value)} />
-          </Label>
+          <div className="space-y-1">
+            <Label htmlFor="alert-metric">Metric</Label>
+            {source === "query" ? (
+              <select
+                id="alert-metric"
+                className={selectClass}
+                value={queryMetric}
+                onChange={(e) => setMetric(e.target.value)}
+              >
+                {outputs.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                id="alert-metric"
+                value={metric}
+                placeholder="The widget's first metric"
+                onChange={(e) => setMetric(e.target.value)}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              {source === "query"
+                ? "One of the query's outputs: a metric alias, or count when the query has no metrics."
+                : "A metric alias of the widget's query (count when it has no metrics)."}
+            </p>
+          </div>
+          {showGrouping ? (
+            <div className="space-y-1">
+              <Label htmlFor="alert-group-evaluation">Grouped results</Label>
+              <select
+                id="alert-group-evaluation"
+                className={selectClass}
+                value={groupEvaluation}
+                onChange={(e) => setGroupEvaluation(e.target.value as AlertGroupEvaluation)}
+              >
+                {(Object.keys(GROUP_EVALUATION_LABELS) as AlertGroupEvaluation[]).map((mode) => (
+                  <option key={mode} value={mode}>
+                    {GROUP_EVALUATION_LABELS[mode]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <Label>
             Condition
             <Select
@@ -453,11 +635,21 @@ function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () => void 
               />
             </Label>
           )}
+          <Label>
+            Cooldown (minutes)
+            <Input
+              type="number"
+              min={0}
+              value={cooldown}
+              onChange={(e) => setCooldown(e.target.value)}
+            />
+          </Label>
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
             </p>
           )}
+          {failure ? <InlineFieldErrors error={failure} /> : null}
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? "Saving…" : "Save alert"}
           </Button>

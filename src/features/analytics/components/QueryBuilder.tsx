@@ -15,18 +15,29 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import type {
   AnalyticsQueryParams,
-  ConnectorType,
+  DateBucket,
+  FieldError,
   FilterOp,
   MetricOp,
   QueryFilter,
+  QueryGroupBy,
   QueryMetric,
   QueryOrder,
 } from "@/lib/api/types";
 import type { Connector } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { MetricPicker } from "@/features/metrics/components/MetricPicker";
+import type { MetricDefinition } from "@/features/metrics/api";
 import { validateAnalyticsQuery, type QueryValidationError } from "@/features/analytics/validation";
+import { DateRangeFields } from "@/features/analytics/components/DateRangeFields";
+import {
+  DATE_BUCKET_OPTIONS,
+  dateRangeFromDraft,
+  draftFromDateRange,
+  type DateRangeDraft,
+} from "@/features/analytics/dateRange";
 
-const METRIC_OPS: MetricOp[] = ["count", "sum", "avg", "min", "max"];
+const METRIC_OPS: MetricOp[] = ["count", "sum", "avg", "min", "max", "count_distinct"];
 const FILTER_OPS: FilterOp[] = ["eq", "neq", "in", "nin", "gt", "gte", "lt", "lte", "exists"];
 
 interface QueryBuilderProps {
@@ -34,19 +45,79 @@ interface QueryBuilderProps {
   onRun: (params: AnalyticsQueryParams) => void;
   loading?: boolean;
   initialParams?: AnalyticsQueryParams | undefined;
+  /** Field errors from a 400 INVALID_QUERY response for the last run. */
+  serverErrors?: FieldError[] | undefined;
+  /** Workspace time zone (from the last result), shown next to date presets. */
+  timezone?: string | undefined;
+  /** ai-catalogue: catalogue metrics offered by the metric picker. */
+  catalogueMetrics?: MetricDefinition[] | undefined;
 }
 
-export function QueryBuilder({ connectors, onRun, loading, initialParams }: QueryBuilderProps) {
+type GroupRow = { field: string; bucket: DateBucket | "" };
+
+function toGroupRows(groupBy: AnalyticsQueryParams["groupBy"]): GroupRow[] {
+  return (groupBy ?? []).map((group) =>
+    typeof group === "string"
+      ? { field: group, bucket: "" }
+      : { field: group.field, bucket: group.bucket ?? "" },
+  );
+}
+
+function toOrderRows(orderBy: AnalyticsQueryParams["orderBy"]): QueryOrder[] {
+  // History records saved before the contract alignment may carry `dir`.
+  return (orderBy ?? []).map((order) => ({
+    field: order.field,
+    direction: order.direction ?? order.dir ?? "asc",
+  }));
+}
+
+/** Text inputs hold strings; send the value type each operator expects. */
+function filterValue(filter: QueryFilter): unknown {
+  const raw = filter.value;
+  if (typeof raw !== "string") return raw;
+  if (filter.op === "in" || filter.op === "nin") {
+    return raw
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (filter.op === "exists") return raw.trim() !== "false";
+  return raw;
+}
+
+export function QueryBuilder({
+  connectors,
+  onRun,
+  loading,
+  initialParams,
+  serverErrors,
+  timezone,
+  catalogueMetrics,
+}: QueryBuilderProps) {
   const [selectedConnectorIds, setSelectedConnectorIds] = useState<string[]>(
     initialParams?.connectorIds ?? [],
   );
-  const [metrics, setMetrics] = useState<QueryMetric[]>(initialParams?.metrics ?? []);
-  const [groupByFields, setGroupByFields] = useState<string[]>(initialParams?.groupBy ?? []);
-  const [filters, setFilters] = useState<QueryFilter[]>(initialParams?.filters ?? []);
+  const [metrics, setMetrics] = useState<QueryMetric[]>(
+    (initialParams?.metrics ?? []).filter((m) => !m.ref),
+  );
+  // ai-catalogue: metric references picked from the catalogue.
+  const [metricRefs, setMetricRefs] = useState<string[]>(
+    (initialParams?.metrics ?? []).flatMap((m) => (m.ref ? [m.ref] : [])),
+  );
+  const [groupByFields, setGroupByFields] = useState<GroupRow[]>(
+    toGroupRows(initialParams?.groupBy),
+  );
+  const [filters, setFilters] = useState<QueryFilter[]>(
+    (initialParams?.filters ?? []).map((f) => ({
+      ...f,
+      value: Array.isArray(f.value) ? f.value.join(", ") : f.value,
+    })),
+  );
   const [filtersOp, setFiltersOp] = useState<"and" | "or">(initialParams?.filtersOp ?? "and");
-  const [dateFrom, setDateFrom] = useState(initialParams?.dateRange?.from?.slice(0, 10) ?? "");
-  const [dateTo, setDateTo] = useState(initialParams?.dateRange?.to?.slice(0, 10) ?? "");
-  const [orderBy, setOrderBy] = useState<QueryOrder[]>(initialParams?.orderBy ?? []);
+  const [dateRange, setDateRange] = useState<DateRangeDraft>(
+    draftFromDateRange(initialParams?.dateRange),
+  );
+  const [orderBy, setOrderBy] = useState<QueryOrder[]>(toOrderRows(initialParams?.orderBy));
   const [page, setPage] = useState(initialParams?.page ?? 1);
   const [limit, setLimit] = useState(initialParams?.limit ?? 50);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -71,11 +142,11 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
   }
 
   function addGroupBy() {
-    setGroupByFields((prev) => [...prev, ""]);
+    setGroupByFields((prev) => [...prev, { field: "", bucket: "" }]);
   }
 
-  function updateGroupBy(index: number, value: string) {
-    setGroupByFields((prev) => prev.map((f, i) => (i === index ? value : f)));
+  function updateGroupBy(index: number, patch: Partial<GroupRow>) {
+    setGroupByFields((prev) => prev.map((g, i) => (i === index ? { ...g, ...patch } : g)));
   }
 
   function removeGroupBy(index: number) {
@@ -95,7 +166,7 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
   }
 
   function addOrderBy() {
-    setOrderBy((prev) => [...prev, { field: "", dir: "asc" }]);
+    setOrderBy((prev) => [...prev, { field: "", direction: "asc" }]);
   }
 
   function updateOrderBy(index: number, patch: Partial<QueryOrder>) {
@@ -109,23 +180,41 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
   function buildParams(): AnalyticsQueryParams {
     const params: AnalyticsQueryParams = {};
     if (selectedConnectorIds.length) params.connectorIds = selectedConnectorIds;
-    if (metrics.length) {
-      params.metrics = metrics.filter((m) => m.field.trim());
+    if (metrics.length || metricRefs.length) {
+      // A count needs no field; every other metric does.
+      params.metrics = metrics
+        .filter((m) => m.field.trim() || m.op === "count")
+        .map((m) => {
+          const field = m.field.trim();
+          const alias = m.alias?.trim();
+          // The API takes a bare count without a field.
+          return {
+            op: m.op,
+            ...(field ? { field } : {}),
+            ...(alias ? { alias } : {}),
+          } as QueryMetric;
+        })
+        .concat(metricRefs.map((ref) => ({ ref }) as QueryMetric));
     }
     if (groupByFields.length) {
-      params.groupBy = groupByFields.filter((f) => f.trim());
+      params.groupBy = groupByFields
+        .filter((g) => g.field.trim())
+        .map((g): string | QueryGroupBy =>
+          g.bucket ? { field: g.field.trim(), bucket: g.bucket } : g.field.trim(),
+        );
     }
     if (filters.length) {
-      params.filters = filters.filter((f) => f.field.trim());
+      params.filters = filters
+        .filter((f) => f.field.trim())
+        .map((f) => ({ field: f.field.trim(), op: f.op, value: filterValue(f) }));
       params.filtersOp = filtersOp;
     }
-    if (dateFrom || dateTo) {
-      params.dateRange = {};
-      if (dateFrom) params.dateRange.from = new Date(dateFrom).toISOString();
-      if (dateTo) params.dateRange.to = new Date(dateTo + "T23:59:59").toISOString();
-    }
+    const range = dateRangeFromDraft(dateRange);
+    if (range) params.dateRange = range;
     if (orderBy.length) {
-      params.orderBy = orderBy.filter((o) => o.field.trim());
+      params.orderBy = orderBy
+        .filter((o) => o.field.trim())
+        .map((o) => ({ field: o.field.trim(), direction: o.direction }));
     }
     params.page = page;
     params.limit = limit;
@@ -181,7 +270,26 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
             <Plus className="mr-1 h-3.5 w-3.5" /> Add
           </Button>
         </div>
-        {metrics.length === 0 && (
+        {catalogueMetrics && (
+          <MetricPicker
+            metrics={catalogueMetrics}
+            onPick={(ref) => setMetricRefs((prev) => (prev.includes(ref) ? prev : [...prev, ref]))}
+          />
+        )}
+        {metricRefs.map((ref) => (
+          <div key={ref} className="flex items-center gap-2 text-xs">
+            <span className="font-mono">{ref}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Remove ${ref}`}
+              onClick={() => setMetricRefs((prev) => prev.filter((r) => r !== ref))}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+        {metrics.length === 0 && metricRefs.length === 0 && (
           <p className="text-xs text-muted-foreground">
             No metrics defined. Add one to aggregate data.
           </p>
@@ -239,15 +347,28 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
             <Plus className="mr-1 h-3.5 w-3.5" /> Add
           </Button>
         </div>
-        {groupByFields.map((field, index) => (
+        {groupByFields.map((group, index) => (
           <div key={`group-${index}`} className="flex items-center gap-2">
             <Input
               placeholder="field name"
-              value={field}
-              onChange={(e) => updateGroupBy(index, e.target.value)}
+              value={group.field}
+              onChange={(e) => updateGroupBy(index, { field: e.target.value })}
               className="flex-1"
               aria-label="Group by field"
             />
+            <select
+              className="h-9 w-32 rounded-md border border-input bg-background px-2 text-sm"
+              aria-label="Group by date bucket"
+              value={group.bucket}
+              onChange={(e) => updateGroupBy(index, { bucket: e.target.value as DateBucket | "" })}
+            >
+              <option value="">Exact value</option>
+              {DATE_BUCKET_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  By {option.label.toLowerCase()}
+                </option>
+              ))}
+            </select>
             <Button
               variant="ghost"
               size="sm"
@@ -308,7 +429,13 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
               </SelectContent>
             </Select>
             <Input
-              placeholder="value"
+              placeholder={
+                filter.op === "in" || filter.op === "nin"
+                  ? "a, b, c"
+                  : filter.op === "exists"
+                    ? "true or false"
+                    : "value"
+              }
               value={typeof filter.value === "string" ? filter.value : JSON.stringify(filter.value)}
               onChange={(e) => updateFilter(index, { value: e.target.value })}
               className="flex-1"
@@ -331,16 +458,12 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
       {/* Date Range */}
       <fieldset className="space-y-2">
         <Label className="text-sm font-medium">Date Range</Label>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 space-y-1">
-            <Label className="text-xs text-muted-foreground">From</Label>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="flex-1 space-y-1">
-            <Label className="text-xs text-muted-foreground">To</Label>
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-        </div>
+        <DateRangeFields
+          idPrefix="query"
+          value={dateRange}
+          onChange={setDateRange}
+          timezone={timezone}
+        />
       </fieldset>
 
       <Separator />
@@ -379,8 +502,8 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
                     aria-label="Sort field"
                   />
                   <Select
-                    value={order.dir}
-                    onValueChange={(v) => updateOrderBy(index, { dir: v as "asc" | "desc" })}
+                    value={order.direction}
+                    onValueChange={(v) => updateOrderBy(index, { direction: v as "asc" | "desc" })}
                   >
                     <SelectTrigger className="w-24" aria-label="Sort direction">
                       <SelectValue />
@@ -442,6 +565,19 @@ export function QueryBuilder({ connectors, onRun, loading, initialParams }: Quer
           ))}
         </ul>
       )}
+
+      {validationErrors.length === 0 && serverErrors?.length ? (
+        <div className="space-y-1 text-sm text-destructive" role="alert">
+          <p className="font-medium">The server rejected this query:</p>
+          <ul className="space-y-1">
+            {serverErrors.map((error) => (
+              <li key={`${error.field}-${error.message}`}>
+                <span className="font-mono text-xs">{error.field}</span>: {error.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Run button */}
       <Button

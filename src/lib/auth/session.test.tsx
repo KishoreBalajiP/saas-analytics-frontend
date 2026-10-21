@@ -9,13 +9,32 @@ import {
   type SessionStatus,
 } from "./session";
 import * as authApi from "@/features/auth/api";
-import { setAccessToken, getAccessToken } from "@/lib/api/client";
+import { ApiError, setAccessToken, getAccessToken } from "@/lib/api/client";
+import { rememberSession } from "./sessionHint";
 
 vi.mock("@/features/auth/api", () => ({
   refreshTenant: vi.fn(),
   tenantMe: vi.fn(),
   logoutTenant: vi.fn(),
 }));
+
+/** Captures the provider's cross-tab sign-out listener. */
+const remoteSignOut = vi.hoisted(() => ({
+  listeners: [] as Array<(audience: "tenant" | "admin") => void>,
+}));
+
+vi.mock("@/lib/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/client")>();
+  return {
+    ...actual,
+    onRemoteSignOut: (listener: (audience: "tenant" | "admin") => void) => {
+      remoteSignOut.listeners.push(listener);
+      return () => {
+        remoteSignOut.listeners = remoteSignOut.listeners.filter((l) => l !== listener);
+      };
+    },
+  };
+});
 
 const mockedAuthApi = vi.mocked(authApi);
 
@@ -28,7 +47,14 @@ function createWrapper() {
 beforeEach(() => {
   vi.clearAllMocks();
   setAccessToken("tenant", null);
+  window.localStorage.clear();
+  remoteSignOut.listeners = [];
 });
+
+const settle = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
 
 describe("TenantSessionProvider", () => {
   describe("initial loading", () => {
@@ -155,7 +181,7 @@ describe("TenantSessionProvider", () => {
       expect(result.current.hasPermission("dashboards.view")).toBe(false);
     });
 
-    it("returns true when permissions array is empty (backend authoritative)", async () => {
+    it("denies when the permissions array is empty (same rule as lib/permissions)", async () => {
       setAccessToken("tenant", "tok");
       mockedAuthApi.tenantMe.mockResolvedValue({
         id: "u1",
@@ -171,8 +197,9 @@ describe("TenantSessionProvider", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       });
 
-      // Empty permissions means "backend stays authoritative; UX-only gate"
-      expect(result.current.hasPermission("analytics.view")).toBe(true);
+      // The profile endpoints return effective permissions; an empty list
+      // means the user holds none, so the UI must not offer the action.
+      expect(result.current.hasPermission("analytics.view")).toBe(false);
     });
   });
 
@@ -224,6 +251,71 @@ describe("TenantSessionProvider", () => {
 
       expect(result.current.permissions).toEqual([]);
     });
+  });
+});
+
+describe("session restore failures", () => {
+  const cookieMissing = () => new ApiError("Session expired", 401, "SESSION_COOKIE_MISSING");
+
+  it("flags blocked cookies when this browser signed in and the session should be alive", async () => {
+    rememberSession("tenant", new Date(Date.now() + 60 * 60 * 1000).toISOString());
+    mockedAuthApi.refreshTenant.mockRejectedValue(cookieMissing());
+
+    const { result } = renderHook(() => useTenantSession(), { wrapper: createWrapper() });
+    await settle();
+
+    expect(result.current.status).toBe("anonymous");
+    expect(result.current.restoreError).toBe("cookies_blocked");
+  });
+
+  it("does not flag a visitor who never signed in", async () => {
+    mockedAuthApi.refreshTenant.mockRejectedValue(cookieMissing());
+
+    const { result } = renderHook(() => useTenantSession(), { wrapper: createWrapper() });
+    await settle();
+
+    expect(result.current.status).toBe("anonymous");
+    expect(result.current.restoreError).toBeNull();
+  });
+
+  it("does not flag a session whose cookie has simply expired", async () => {
+    rememberSession("tenant", new Date(Date.now() - 1000).toISOString());
+    mockedAuthApi.refreshTenant.mockRejectedValue(cookieMissing());
+
+    const { result } = renderHook(() => useTenantSession(), { wrapper: createWrapper() });
+    await settle();
+
+    expect(result.current.restoreError).toBeNull();
+  });
+
+  it("does not flag a session the server ended (revoked or expired)", async () => {
+    rememberSession("tenant", new Date(Date.now() + 60_000).toISOString());
+    mockedAuthApi.refreshTenant.mockRejectedValue(
+      new ApiError("Session revoked", 401, "SESSION_REVOKED"),
+    );
+
+    const { result } = renderHook(() => useTenantSession(), { wrapper: createWrapper() });
+    await settle();
+
+    expect(result.current.restoreError).toBeNull();
+  });
+});
+
+describe("sign-out in another tab", () => {
+  it("signs this tab out of the same portal", async () => {
+    setAccessToken("tenant", "tok");
+    mockedAuthApi.tenantMe.mockResolvedValue({ id: "u1", email: "t@t.com", permissions: [] });
+
+    const { result } = renderHook(() => useTenantSession(), { wrapper: createWrapper() });
+    await settle();
+    expect(result.current.status).toBe("authenticated");
+
+    act(() => remoteSignOut.listeners.forEach((listener) => listener("admin")));
+    expect(result.current.status).toBe("authenticated");
+
+    act(() => remoteSignOut.listeners.forEach((listener) => listener("tenant")));
+    expect(result.current.status).toBe("anonymous");
+    expect(result.current.me).toBeNull();
   });
 });
 

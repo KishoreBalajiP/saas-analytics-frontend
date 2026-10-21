@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -12,12 +12,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import * as connectorsApi from "@/features/datasets/api";
 import * as dashboardsApi from "@/features/dashboards/api";
-import type { AnalyticsQueryParams, Dashboard, Widget, WidgetType } from "@/lib/api/types";
+import { DateRangeFields } from "@/features/analytics/components/DateRangeFields";
+import {
+  dateRangeFromDraft,
+  draftFromDateRange,
+  validateDateRangeDraft,
+  type DateRangeDraft,
+} from "@/features/analytics/dateRange";
+import type { Dashboard, Widget } from "@/lib/api/types";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
 
-const WIDGET_TYPES: WidgetType[] = ["kpi", "table", "bar", "line", "area", "pie"];
-const DEFAULT_POSITION = { x: 0, y: 0, w: 6, h: 4 };
+import { SharingPanel } from "./SharingPanel";
+import { WidgetBuilder } from "./WidgetBuilder";
 
 type JsonObject = Record<string, unknown>;
 
@@ -36,17 +43,6 @@ function parseObject(value: string, label: string): { value?: JsonObject; error?
   } catch {
     return { error: `${label} must contain valid JSON.` };
   }
-}
-
-function parsePosition(value: string) {
-  const parsed = parseObject(value, "Position");
-  if (parsed.error || !parsed.value) return parsed;
-  const position = parsed.value;
-  const keys = ["x", "y", "w", "h"] as const;
-  if (keys.some((key) => typeof position[key] !== "number")) {
-    return { error: "Position must include numeric x, y, w, and h values." };
-  }
-  return { value: position };
 }
 
 export function DashboardEditor({ dashboardId }: { dashboardId: string }) {
@@ -108,12 +104,18 @@ export function DashboardEditor({ dashboardId }: { dashboardId: string }) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,28rem)]">
-      <DashboardSettings
-        dashboard={dashboard}
-        onSaved={() =>
-          void queryClient.invalidateQueries({ queryKey: ["dashboards", "detail", dashboardId] })
-        }
-      />
+      <div className="space-y-6">
+        <DashboardSettings
+          dashboard={dashboard}
+          onSaved={() =>
+            void queryClient.invalidateQueries({ queryKey: ["dashboards", "detail", dashboardId] })
+          }
+        />
+        {/* vizbuilder: share management for the creator / dashboards.assign holders. */}
+        {!dashboard.access || dashboard.access === "manage" ? (
+          <SharingPanel dashboardId={dashboardId} />
+        ) : null}
+      </div>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -126,7 +128,7 @@ export function DashboardEditor({ dashboardId }: { dashboardId: string }) {
             <Plus className="mr-1 h-4 w-4" /> Add
           </Button>
         </div>
-        <WidgetEditorForm
+        <WidgetBuilder
           key={selectedWidget?._id ?? "new"}
           dashboardId={dashboardId}
           widget={selectedWidget}
@@ -165,11 +167,27 @@ export function DashboardEditor({ dashboardId }: { dashboardId: string }) {
   );
 }
 
-function DashboardSettings({ dashboard, onSaved }: { dashboard: Dashboard; onSaved: () => void }) {
+/** Dashboard default filters without the date range (edited with the picker). */
+function filtersWithoutDateRange(filters: Dashboard["filters"]) {
+  if (!filters || typeof filters !== "object") return undefined;
+  const { dateRange: _dateRange, ...rest } = filters as JsonObject;
+  return Object.keys(rest).length ? rest : undefined;
+}
+
+export function DashboardSettings({
+  dashboard,
+  onSaved,
+}: {
+  dashboard: Dashboard;
+  onSaved: () => void;
+}) {
   const [name, setName] = useState(dashboard.name);
   const [description, setDescription] = useState(dashboard.description ?? "");
   const [layout, setLayout] = useState(jsonText(dashboard.layout));
-  const [filters, setFilters] = useState(jsonText(dashboard.filters));
+  const [dateRange, setDateRange] = useState<DateRangeDraft>(
+    draftFromDateRange((dashboard.filters as JsonObject | undefined)?.["dateRange"]),
+  );
+  const [filters, setFilters] = useState(jsonText(filtersWithoutDateRange(dashboard.filters)));
   const [refresh, setRefresh] = useState(jsonText(dashboard.refresh));
   const [error, setError] = useState<unknown>(null);
   const mutation = useMutation({
@@ -177,13 +195,18 @@ function DashboardSettings({ dashboard, onSaved }: { dashboard: Dashboard; onSav
       const parsedLayout = parseObject(layout, "Layout");
       const parsedFilters = parseObject(filters, "Filters");
       const parsedRefresh = parseObject(refresh, "Refresh");
-      const firstError = parsedLayout.error ?? parsedFilters.error ?? parsedRefresh.error;
+      const dateIssue = validateDateRangeDraft(dateRange)[0]?.message;
+      const firstError =
+        dateIssue ?? parsedLayout.error ?? parsedFilters.error ?? parsedRefresh.error;
       if (firstError) return Promise.reject(new Error(firstError));
+      // The picker owns the date range; the JSON holds filters / filtersOp.
+      const { dateRange: _ignored, ...otherFilters } = parsedFilters.value ?? {};
+      const range = dateRangeFromDraft(dateRange);
       return dashboardsApi.update(dashboard._id, {
         name: name.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(parsedLayout.value ? { layout: parsedLayout.value } : {}),
-        ...(parsedFilters.value ? { filters: parsedFilters.value } : {}),
+        filters: { ...otherFilters, ...(range ? { dateRange: range } : {}) },
         ...(parsedRefresh.value ? { refresh: parsedRefresh.value } : {}),
       });
     },
@@ -236,9 +259,16 @@ function DashboardSettings({ dashboard, onSaved }: { dashboard: Dashboard; onSav
             value={layout}
             onChange={setLayout}
           />
+          <fieldset className="space-y-2">
+            <Label className="text-sm font-medium">Default date range</Label>
+            <p className="text-xs text-muted-foreground">
+              Applies to widgets that do not set their own date range.
+            </p>
+            <DateRangeFields idPrefix="dashboard" value={dateRange} onChange={setDateRange} />
+          </fieldset>
           <JsonField
             id="dashboard-filters"
-            label="Filters JSON"
+            label='Default filters JSON ({ "filters": [...], "filtersOp": "and" })'
             value={filters}
             onChange={setFilters}
           />
@@ -260,156 +290,6 @@ function DashboardSettings({ dashboard, onSaved }: { dashboard: Dashboard; onSav
             <Save className="mr-1 h-4 w-4" />
             {mutation.isPending ? "Saving…" : "Save settings"}
           </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function WidgetEditorForm({
-  dashboardId,
-  widget,
-  connectors,
-  onSaved,
-}: {
-  dashboardId: string;
-  widget: Widget | null;
-  connectors: Array<{ _id: string; name: string }>;
-  onSaved: () => void;
-}) {
-  const [name, setName] = useState(widget?.name ?? "");
-  const [type, setType] = useState<WidgetType>(widget?.type ?? "table");
-  const [datasetId, setDatasetId] = useState(widget?.datasetId ?? "");
-  const [query, setQuery] = useState(jsonText(widget?.query));
-  const [visualization, setVisualization] = useState(jsonText(widget?.visualization));
-  const [position, setPosition] = useState(jsonText(widget?.position ?? DEFAULT_POSITION));
-  const [error, setError] = useState<unknown>(null);
-  const mutation = useMutation({
-    mutationFn: () => {
-      const parsedQuery = parseObject(query, "Query");
-      const parsedVisualization = parseObject(visualization, "Visualization");
-      const parsedPosition = parsePosition(position);
-      const firstError = parsedQuery.error ?? parsedVisualization.error ?? parsedPosition.error;
-      if (firstError) return Promise.reject(new Error(firstError));
-      if (!name.trim()) return Promise.reject(new Error("Widget name is required."));
-      if (!datasetId) return Promise.reject(new Error("Dataset is required."));
-      const body = {
-        name: name.trim(),
-        type,
-        datasetId,
-        ...(parsedQuery.value ? { query: parsedQuery.value as AnalyticsQueryParams } : {}),
-        ...(parsedVisualization.value ? { visualization: parsedVisualization.value } : {}),
-        ...(parsedPosition.value
-          ? { position: parsedPosition.value as { x: number; y: number; w: number; h: number } }
-          : {}),
-      };
-      return widget
-        ? dashboardsApi.updateWidget(dashboardId, widget._id, body)
-        : dashboardsApi.createWidget(dashboardId, body);
-    },
-    onSuccess: () => {
-      setError(null);
-      toast.success(widget ? "Widget updated" : "Widget added");
-      onSaved();
-    },
-    onError: setError,
-  });
-  const deleteMutation = useMutation({
-    mutationFn: () => dashboardsApi.removeWidget(dashboardId, widget?._id ?? ""),
-    onSuccess: () => {
-      toast.success("Widget deleted");
-      onSaved();
-    },
-    onError: setError,
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{widget ? "Edit widget" : "Add widget"}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            mutation.mutate();
-          }}
-        >
-          <div className="space-y-2">
-            <Label htmlFor="widget-name">Name</Label>
-            <Input
-              id="widget-name"
-              value={name}
-              maxLength={120}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="widget-type">Type</Label>
-            <select
-              id="widget-type"
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={type}
-              onChange={(event) => setType(event.target.value as WidgetType)}
-            >
-              {WIDGET_TYPES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="widget-dataset">Dataset</Label>
-            <select
-              id="widget-dataset"
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={datasetId}
-              onChange={(event) => setDatasetId(event.target.value)}
-            >
-              <option value="">Select a dataset</option>
-              {connectors.map((connector) => (
-                <option key={connector._id} value={connector._id}>
-                  {connector.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <JsonField id="widget-query" label="Query JSON" value={query} onChange={setQuery} />
-          <JsonField
-            id="widget-visualization"
-            label="Visualization JSON"
-            value={visualization}
-            onChange={setVisualization}
-          />
-          <JsonField
-            id="widget-position"
-            label="Position JSON"
-            value={position}
-            onChange={setPosition}
-          />
-          {error instanceof Error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error.message}
-            </p>
-          )}
-          <div className="flex gap-2">
-            <Button type="submit" disabled={mutation.isPending || deleteMutation.isPending}>
-              {mutation.isPending ? "Saving…" : widget ? "Save widget" : "Add widget"}
-            </Button>
-            {widget && (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => deleteMutation.mutate()}
-                disabled={mutation.isPending || deleteMutation.isPending}
-              >
-                <Trash2 className="mr-1 h-4 w-4" />
-                Delete
-              </Button>
-            )}
-          </div>
         </form>
       </CardContent>
     </Card>

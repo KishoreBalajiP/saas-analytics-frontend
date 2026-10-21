@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const session = vi.hoisted(() => ({
   status: "loading" as "loading" | "authenticated" | "anonymous",
+  restoreError: null as "cookies_blocked" | null,
 }));
 const navigate = vi.hoisted(() => vi.fn());
 
@@ -68,5 +69,43 @@ describe("tenant login entry", () => {
       "/register",
     );
     expect(screen.queryByText(/admin sign in/i)).not.toBeInTheDocument();
+  });
+
+  it("prefills the workspace slug handed over in the address", async () => {
+    window.history.replaceState({}, "", "/login?workspace=owner-workspace");
+    renderWithQuery(<TenantLoginPage />);
+    expect(await screen.findByDisplayValue("owner-workspace")).toBeVisible();
+    window.history.replaceState({}, "", "/login");
+  });
+
+  it("explains when the browser blocked the sign-in cookie", () => {
+    session.status = "anonymous";
+    session.restoreError = "cookies_blocked";
+    renderWithQuery(<TenantLoginPage />);
+    expect(screen.getByRole("alert")).toHaveTextContent(/blocked the sign-in cookie/i);
+    session.restoreError = null;
+  });
+
+  it("shows no cookie warning for an ordinary visit", () => {
+    session.status = "anonymous";
+    renderWithQuery(<TenantLoginPage />);
+    expect(screen.queryByText(/blocked the sign-in cookie/i)).not.toBeInTheDocument();
+  });
+
+  // onboarding: the last workspace is remembered, with a way to switch.
+  it("prefills the remembered workspace and can forget it", async () => {
+    window.localStorage.setItem("saas.tenantSlug", "remembered-co");
+    renderWithQuery(<TenantLoginPage />);
+    expect(await screen.findByDisplayValue("remembered-co")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /use a different workspace/i }));
+    expect(screen.getByLabelText(/workspace slug/i)).toHaveValue("");
+    expect(window.localStorage.getItem("saas.tenantSlug")).toBeNull();
+  });
+
+  it("ignores a malformed workspace slug in the address", () => {
+    window.history.replaceState({}, "", "/login?workspace=Not%20A%20Slug");
+    renderWithQuery(<TenantLoginPage />);
+    expect(screen.getByLabelText(/workspace slug/i)).toHaveValue("");
+    window.history.replaceState({}, "", "/login");
   });
 });

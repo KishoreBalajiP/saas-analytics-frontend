@@ -23,7 +23,7 @@ describe("FileUploadZone", () => {
     const { container } = render(<FileUploadZone onFileSelect={vi.fn()} />);
     const input = container.querySelector('input[type="file"]');
     expect(input).toBeTruthy();
-    expect(input).toHaveAttribute("accept", ".csv,.txt,.xlsx,.xls");
+    expect(input).toHaveAttribute("accept", ".csv,.txt,.xlsx");
     expect(input).toHaveAttribute("aria-hidden", "true");
   });
 

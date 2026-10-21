@@ -16,12 +16,14 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { CopyableValue } from "@/features/datasets/components/FileUploadZone";
 import { FileUploadZone } from "@/features/datasets/components/FileUploadZone";
+import { WebhookSigningInstructions } from "@/features/datasets/components/WebhookSigningInstructions";
+import { describeUploadError, type DescribedError } from "@/features/datasets/lib/connectorErrors";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
 import { AppLink } from "@/components/common/AppLink";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +40,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as connectorsApi from "@/features/datasets/api";
+import { SyncHistory, SyncStateSummary } from "@/features/datasets/components/SyncHistory";
+import { SchemaView } from "@/features/datasets/components/SchemaView";
+// rls: dataset access, row rules and preview-as-member.
+import { DatasetAccessPanel } from "@/features/datasets/access/DatasetAccessPanel";
+import { SYNC_POLL_INTERVAL_MS, isSyncInFlight, syncErrorMessage } from "@/features/datasets/sync";
 import type { ConnectorType, PaginationMeta, PreviewResult } from "@/lib/api/types";
+import { isQuotaExceeded, toastError } from "@/lib/api/quota";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
 
@@ -83,6 +91,7 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
   const [tab, setTab] = useState("overview");
   const [dataPage, setDataPage] = useState(1);
   const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
+  const [uploadError, setUploadError] = useState<DescribedError | null>(null);
 
   const canView = hasPermission(permissions, Permissions.CONNECTORS_VIEW);
   const canUpdate = hasPermission(permissions, Permissions.CONNECTORS_UPDATE);
@@ -94,7 +103,15 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
     queryKey: ["connector", connectorId],
     queryFn: () => connectorsApi.get(connectorId),
     enabled: canView && !!connectorId,
+    // Keep the sync state fresh while a sync is queued or running.
+    refetchInterval: (query) => (isSyncInFlight(query.state.data) ? SYNC_POLL_INTERVAL_MS : false),
   });
+  const syncing = isSyncInFlight(connectorQuery.data);
+
+  const refreshSyncState = () => {
+    void connectorQuery.refetch();
+    void queryClient.invalidateQueries({ queryKey: ["connector", connectorId, "sync-runs"] });
+  };
 
   const rowsQuery = useQuery({
     queryKey: ["connector", connectorId, "rows", dataPage],
@@ -121,31 +138,62 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
     onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to delete"),
   });
 
+  function reportUploadError(error: unknown, action: "preview" | "sync") {
+    const described = describeUploadError(error, connectorQuery.data?.type, { action });
+    setUploadError(described);
+    // A plan limit gets the shared quota toast (with a link to usage).
+    if (isQuotaExceeded(error)) toastError(error, described.title);
+    else toast.error(described.title, { description: described.description });
+  }
+
   const previewMutation = useMutation({
     mutationFn: (file: File) => connectorsApi.previewFile(connectorId, file),
+    onMutate: () => setUploadError(null),
     onSuccess: (result) => {
       setPreviewResult(result);
       toast.success("Preview generated");
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Preview failed"),
+    onError: (error) => reportUploadError(error, "preview"),
   });
 
   const syncFileMutation = useMutation({
     mutationFn: (file: File) => connectorsApi.syncFile(connectorId, file),
+    onMutate: () => setUploadError(null),
     onSuccess: (result) => {
       toast.success(`Sync queued: ${result.filename ?? "file"}`);
+      refreshSyncState();
+    },
+    onError: (error) => {
+      // Upload problems (413 / 415 / parse) and sync-slot problems (409
+      // SYNC_IN_PROGRESS, 503 QUEUE_*) are both shown inline and as a toast.
+      reportUploadError(error, "sync");
+      refreshSyncState();
+    },
+  });
+
+  const upgradeSignatureMutation = useMutation({
+    mutationFn: () => connectorsApi.update(connectorId, { webhookSignatureVersion: 2 }),
+    onSuccess: () => {
+      toast.success("Timestamped signatures are now required");
       connectorQuery.refetch();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Sync failed"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Unable to update the webhook"),
   });
 
   const syncMongoMutation = useMutation({
     mutationFn: () => connectorsApi.syncMongoDB(connectorId),
     onSuccess: () => {
       toast.success("MongoDB sync queued");
-      connectorQuery.refetch();
+      refreshSyncState();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Sync failed"),
+    onError: (error) => {
+      // A plan limit gets the shared quota toast (with a link to usage);
+      // sync-slot and queue problems keep their own messages.
+      if (isQuotaExceeded(error)) toastError(error, "Sync failed");
+      else toast.error(syncErrorMessage(error));
+      refreshSyncState();
+    },
   });
 
   const validateMutation = useMutation({
@@ -257,7 +305,9 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete {connector.name}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. All ingested data will be lost.
+                      This action cannot be undone. All ingested data will be lost. Widgets, reports
+                      and alerts that use this dataset will be marked as broken, and their schedules
+                      will stop until you point them at another dataset.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -283,10 +333,12 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="schema">Schema</TabsTrigger>
           {(connector.type === "csv" || connector.type === "xlsx") && canPreview && (
             <TabsTrigger value="preview">Preview</TabsTrigger>
           )}
           {canSync && <TabsTrigger value="sync">Sync</TabsTrigger>}
+          <TabsTrigger value="history">History</TabsTrigger>
           {connector.type === "webhook" && <TabsTrigger value="webhook">Webhook</TabsTrigger>}
         </TabsList>
 
@@ -313,6 +365,7 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
                 <dt className="w-36 text-muted-foreground">Last synced</dt>
                 <dd>{formatDate(connector.lastSyncedAt)}</dd>
               </div>
+              <SyncStateSummary connector={connector} />
               {connector.lastError && (
                 <div className="flex gap-2">
                   <dt className="w-36 text-destructive">Last error</dt>
@@ -384,6 +437,10 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
           )}
         </TabsContent>
 
+        <TabsContent value="schema" className="pt-4">
+          {tab === "schema" && <SchemaView connectorId={connectorId} />}
+        </TabsContent>
+
         <TabsContent value="preview" className="space-y-4 pt-4">
           <div className="rounded-lg border border-border bg-card p-6">
             <h3 className="text-sm font-semibold">Upload file for preview</h3>
@@ -392,10 +449,11 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
             </p>
             <FileUploadZone
               label={`Drop a .${connector.type === "csv" ? "csv" : "xlsx"} file here`}
-              accept={connector.type === "csv" ? ".csv,.txt" : ".xlsx,.xls"}
+              accept={connector.type === "csv" ? ".csv,.txt" : ".xlsx"}
               isProcessing={previewMutation.isPending}
               onFileSelect={(file) => previewMutation.mutate(file)}
             />
+            {uploadError ? <UploadErrorAlert error={uploadError} /> : null}
           </div>
 
           {previewResult && (
@@ -434,12 +492,18 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
                 ? "Pull the latest data from your MongoDB collection."
                 : `Upload a .${connector.type} file to sync data into this connector.`}
             </p>
+            {syncing ? (
+              <p className="mt-2 text-xs text-muted-foreground" role="status">
+                A sync is in progress. You can start another one when it finishes; see the History
+                tab for its progress.
+              </p>
+            ) : null}
 
             {connector.type === "mongodb" ? (
               <div className="mt-4">
                 <Button
                   onClick={() => syncMongoMutation.mutate()}
-                  disabled={!canSync || syncMongoMutation.isPending}
+                  disabled={!canSync || syncing || syncMongoMutation.isPending}
                 >
                   {syncMongoMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -453,14 +517,29 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
                 </p>
               </div>
             ) : (
-              <FileUploadZone
-                label={`Drop a .${connector.type === "csv" ? "csv" : "xlsx"} file to sync`}
-                accept={connector.type === "csv" ? ".csv,.txt" : ".xlsx,.xls"}
-                isProcessing={syncFileMutation.isPending}
-                onFileSelect={(file) => syncFileMutation.mutate(file)}
-              />
+              <>
+                <FileUploadZone
+                  label={`Drop a .${connector.type === "csv" ? "csv" : "xlsx"} file to sync`}
+                  accept={connector.type === "csv" ? ".csv,.txt" : ".xlsx"}
+                  isProcessing={syncFileMutation.isPending || syncing}
+                  onFileSelect={(file) => syncFileMutation.mutate(file)}
+                />
+                {uploadError ? <UploadErrorAlert error={uploadError} /> : null}
+              </>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-3 pt-4">
+          <div>
+            <h3 className="text-sm font-semibold">Sync history</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Every sync of this dataset, newest first. A sync stopped by a restart is detected
+              automatically and shown as Interrupted.
+            </p>
+          </div>
+          <SyncHistory connectorId={connectorId} enabled={tab === "history"} live={syncing} />
+          <DatasetAccessPanel connectorId={connectorId} />
         </TabsContent>
 
         {connector.type === "webhook" && (
@@ -475,9 +554,17 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
 
               {connector.webhookToken && (
                 <div className="mt-4 space-y-4">
-                  <CopyableValue
-                    label="Endpoint URL"
-                    value={`/webhooks/${connector.webhookToken}`}
+                  <WebhookSigningInstructions
+                    webhookToken={connector.webhookToken}
+                    signatureVersion={connector.webhookSignatureVersion}
+                    toleranceSeconds={
+                      connector.webhookToleranceSeconds ??
+                      (typeof connector.configSummary?.["toleranceSeconds"] === "number"
+                        ? (connector.configSummary["toleranceSeconds"] as number)
+                        : undefined)
+                    }
+                    onUpgrade={canUpdate ? () => upgradeSignatureMutation.mutate() : undefined}
+                    upgrading={upgradeSignatureMutation.isPending}
                   />
                   <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-xs text-success">
                     <AlertCircle className="mr-1 inline h-3 w-3" />
@@ -506,5 +593,15 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
         )}
       </Tabs>
     </>
+  );
+}
+
+function UploadErrorAlert({ error }: { error: DescribedError }) {
+  return (
+    <Alert variant="destructive" className="mt-3">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>{error.title}</AlertTitle>
+      <AlertDescription>{error.description}</AlertDescription>
+    </Alert>
   );
 }

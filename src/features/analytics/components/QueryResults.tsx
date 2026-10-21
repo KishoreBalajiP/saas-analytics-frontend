@@ -13,7 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import * as analyticsApi from "@/features/analytics/api";
-import type { AnalyticsQueryParams, AnalyticsResult } from "@/lib/api/types";
+import { ExportStatus } from "@/features/analytics/components/ExportStatus";
+import { ApiError } from "@/lib/api/client";
+import type { AnalyticsQueryParams, AnalyticsResult, QueryWindow } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 interface QueryResultsProps {
@@ -33,6 +35,54 @@ function formatTimestamp(value?: string) {
   return new Date(value).toLocaleString();
 }
 
+/** "2026-01-01 – 2026-01-31 on order_date (Asia/Kolkata)" in the workspace zone. */
+function describeWindow(window: QueryWindow, timezone?: string) {
+  const day = (iso: string | null) => {
+    if (!iso) return "…";
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: timezone || "UTC" }).format(
+        new Date(iso),
+      );
+    } catch {
+      return iso.slice(0, 10);
+    }
+  };
+  return `${day(window.from)} – ${day(window.to)} on ${window.field}`;
+}
+
+/** A rejected query (400) lists every field error; the concurrency limit (429) says why. */
+function QueryError({ error }: { error: unknown }) {
+  if (error instanceof ApiError && error.statusCode === 400 && error.errors?.length) {
+    return (
+      <div className="rounded-xl border border-destructive/40 bg-card p-6" role="alert">
+        <h3 className="text-base font-semibold">Query rejected</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Fix these parts of the query and run it again:
+        </p>
+        <ul className="mt-3 space-y-1 text-sm text-destructive">
+          {error.errors.map((fieldError) => (
+            <li key={`${fieldError.field}-${fieldError.message}`}>
+              <span className="font-mono text-xs">{fieldError.field}</span>: {fieldError.message}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  if (error instanceof ApiError && error.code === "QUERY_CONCURRENCY_LIMIT") {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6" role="alert">
+        <h3 className="text-base font-semibold">Too many queries running</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your workspace already has the maximum number of analytics queries running. Wait a moment
+          and run the query again.
+        </p>
+      </div>
+    );
+  }
+  return <ErrorState error={error} resource="Analytics query" />;
+}
+
 export function QueryResults({
   result,
   meta,
@@ -44,6 +94,8 @@ export function QueryResults({
 }: QueryResultsProps) {
   const [view, setView] = useState<"table" | "chart">("table");
   const [chartType, setChartType] = useState<ChartType>("bar");
+  // The export being tracked (status polled until ready, then downloadable).
+  const [exportId, setExportId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -54,7 +106,7 @@ export function QueryResults({
   }
 
   if (error) {
-    return <ErrorState error={error} resource="Analytics query" />;
+    return <QueryError error={error} />;
   }
 
   if (!result) {
@@ -80,7 +132,8 @@ export function QueryResults({
     if (!lastParams) return;
     try {
       const response = await analyticsApi.exportQuery(lastParams, format);
-      toast.success(`Export queued (${response.exportId})`);
+      setExportId(response.exportId);
+      toast.success(`${format.toUpperCase()} export queued`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
     }
@@ -108,6 +161,8 @@ export function QueryResults({
           <span className="rounded bg-accent px-1.5 py-0.5 text-accent-foreground">cached</span>
         )}
         {executedAt && <span>Executed {formatTimestamp(executedAt)}</span>}
+        {result.window && <span>{describeWindow(result.window, result.timezone)}</span>}
+        {result.timezone && <span>Time zone {result.timezone}</span>}
         <div className="ml-auto flex items-center gap-2">
           <Select value={view} onValueChange={(v) => setView(v as "table" | "chart")}>
             <SelectTrigger className="h-7 w-20 text-xs" aria-label="View mode">
@@ -148,6 +203,10 @@ export function QueryResults({
           )}
         </div>
       </div>
+
+      {exportId ? (
+        <ExportStatus key={exportId} exportId={exportId} onDismiss={() => setExportId(null)} />
+      ) : null}
 
       {/* Results */}
       {view === "table" ? (

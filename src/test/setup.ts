@@ -1,5 +1,22 @@
 import "@testing-library/jest-dom/vitest";
 
+// Node 22+ ships its own Web Storage globals. Without --localstorage-file
+// Node's `localStorage` getter returns undefined and shadows jsdom's, so
+// storage writes silently fail in tests. Point both globals back at the
+// jsdom window's working Storage objects.
+{
+  const dom = (globalThis as { jsdom?: { window: Window } }).jsdom;
+  if (dom) {
+    for (const key of ["localStorage", "sessionStorage"] as const) {
+      Object.defineProperty(globalThis, key, {
+        configurable: true,
+        enumerable: true,
+        get: () => dom.window[key],
+      });
+    }
+  }
+}
+
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = class ResizeObserver {
     cb: ResizeObserverCallback;

@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { TenantPortal } from "@/components/layout/TenantPortal";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PasswordForm, ProfileForm, SessionsPanel } from "@/features/profile/ProfilePanels";
+import { TenantMfaCard } from "@/features/auth/mfa/TenantMfaCard";
 import { useTenantSession } from "@/lib/auth/session";
 
 export const Route = createFileRoute("/profile")({
@@ -23,47 +24,26 @@ function ProfilePage() {
   );
 }
 
+// onboarding: a working profile (name, time zone, password, sessions).
+// mfa-tenant: the MFA card manages enrolment, recovery codes and disable.
 function ProfileContent() {
-  const { me } = useTenantSession();
-
+  const { me, tenantSlug, setSession } = useTenantSession();
+  if (!me) return null;
   return (
     <>
       <PageHeader
         title="Profile & Security"
-        description="Manage your account settings and password. Tenant-user MFA is not currently available."
+        description="Your name, time zone, password, two-step verification and signed-in devices."
         crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Profile" }]}
       />
-
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Account</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div>
-              <span className="text-muted-foreground">Email:</span>{" "}
-              <span className="font-medium">{me?.email}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Roles:</span>{" "}
-              <span className="font-medium">{me?.roles?.join(", ") ?? "—"}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Tenant-user MFA:</span>{" "}
-              <span className="font-medium">Not currently available</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle className="text-base">Password security</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Profile editing and password change will be available in a future release. TOTP MFA
-            currently applies to platform administrator accounts only.
-          </CardContent>
-        </Card>
+        <ProfileForm
+          me={me}
+          onSaved={(updated) => setSession({ ...me, ...updated }, tenantSlug ?? undefined)}
+        />
+        <PasswordForm />
+        <SessionsPanel />
+        <TenantMfaCard />
       </div>
     </>
   );

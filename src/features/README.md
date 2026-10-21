@@ -18,6 +18,8 @@ reasoned about in isolation.
 | api-keys | `features/api-keys/` | tenant | stub API (Phase 3) |
 | embed | `features/embed/` | tenant | stub API (Phase 3) |
 | admin | `features/admin/` | admin | stub API (Phase 3) |
+| platform-config | `features/platform-config/` | admin | Implemented (roadmap 2.4: settings, feature flags, email templates) |
+| feature-flags | `features/feature-flags/` | tenant | Implemented (`useFeatureFlags` hook, workspace features card) |
 
 ## Layout
 

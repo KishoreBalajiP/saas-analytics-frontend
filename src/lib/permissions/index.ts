@@ -103,6 +103,17 @@ export const Permissions = {
 
   // Users
   USERS_VIEW: perm("users", "view"),
+  // members: workspace member and role management (roadmap 2.10).
+  USERS_CREATE: perm("users", "create"),
+  USERS_UPDATE: perm("users", "update"),
+  USERS_DELETE: perm("users", "delete"),
+  ROLES_VIEW: perm("roles", "view"),
+  ROLES_CREATE: perm("roles", "create"),
+  ROLES_UPDATE: perm("roles", "update"),
+  ROLES_DELETE: perm("roles", "delete"),
+  ROLES_ASSIGN: perm("roles", "assign"),
+  WORKSPACE_TRANSFER: perm("workspace", "transfer"),
+  WORKSPACE_DELETE: perm("workspace", "delete"),
 
   // IAM (admin)
   IAM_TENANTS_VIEW: perm("iam.tenants", "view"),
@@ -113,6 +124,10 @@ export const Permissions = {
   IAM_TENANTS_DELETE: perm("iam.tenants", "delete"),
   IAM_TENANTS_CONFIGURE: perm("iam.tenants", "configure"),
   IAM_TENANTS_ASSIGN: perm("iam.tenants", "assign"),
+  // backups: tenant data export (roadmap 2.9).
+  IAM_TENANTS_EXPORT: perm("iam.tenants", "export"),
+  DATA_EXPORTS_VIEW: perm("data_exports", "view"),
+  DATA_EXPORTS_EXPORT: perm("data_exports", "export"),
 
   IAM_ADMINS_VIEW: perm("iam.admins", "view"),
   IAM_ADMINS_CREATE: perm("iam.admins", "create"),
@@ -150,9 +165,15 @@ export const Permissions = {
   SUPPORT_RECOVER: perm("support", "recover"),
   SUPPORT_BROADCAST: perm("support", "broadcast"),
   SUPPORT_LOOKUP: perm("support", "lookup"),
+  // support: keys the backend actually provisions (canonical actions).
+  // `support.lookup`/`impersonate`/`recover`/`broadcast` above are not
+  // creatable on the backend; gate on these instead.
+  SUPPORT_APPROVE: perm("support", "approve"),
 
   // Monitoring
   MONITORING_VIEW: perm("monitoring", "view"),
+  // retention: requeue dead-lettered outbox email.
+  MONITORING_UPDATE: perm("monitoring", "update"),
 
   // Phase 6 - Plans, Billing, Subscriptions and Entitlements
   IAM_SUBSCRIPTIONS_VIEW: perm("iam.subscriptions", "view"),
@@ -165,6 +186,54 @@ export const Permissions = {
   BILLING_SUBSCRIPTIONS_VIEW: perm("billing.subscriptions", "view"),
   BILLING_SUBSCRIPTIONS_OVERRIDE: perm("billing.subscriptions", "override"),
   BILLING_ENTITLEMENTS_OVERRIDE: perm("billing.entitlements", "override"),
+
+  // detection: platform security alerts (roadmap 2.6)
+  SECURITY_ALERTS_VIEW: perm("security.alerts", "view"),
+  SECURITY_ALERTS_UPDATE: perm("security.alerts", "update"),
+
+  // adminauth: admin invitations (revoke) and admin-assisted credential resets.
+  IAM_ADMINS_DELETE: perm("iam.admins", "delete"),
+  IAM_ADMINS_CONFIGURE: perm("iam.admins", "configure"),
+
+  // config: platform configuration (roadmap 2.4). `settings.*` and
+  // `feature_flags.view` are also tenant keys (workspace settings / flags).
+  SETTINGS_VIEW: perm("settings", "view"),
+  SETTINGS_UPDATE: perm("settings", "update"),
+  SETTINGS_SECRETS_VIEW: perm("settings.secrets", "view"),
+  SETTINGS_SECRETS_UPDATE: perm("settings.secrets", "update"),
+  FEATURE_FLAGS_VIEW: perm("feature_flags", "view"),
+  FEATURE_FLAGS_CREATE: perm("feature_flags", "create"),
+  FEATURE_FLAGS_UPDATE: perm("feature_flags", "update"),
+  FEATURE_FLAGS_DELETE: perm("feature_flags", "delete"),
+  EMAIL_TEMPLATES_VIEW: perm("email_templates", "view"),
+  EMAIL_TEMPLATES_UPDATE: perm("email_templates", "update"),
+
+  // roles: platform role model (roadmap 2.1). Keys mirror the backend route
+  // gates. Support: lookups = view; account recovery, session revocation and
+  // broadcasts = update; impersonation = configure (SUPPORT_CONFIGURE). The
+  // older SUPPORT_LOOKUP / IMPERSONATE / RECOVER / BROADCAST keys name
+  // actions the backend never grants: do not gate on them.
+  SUPPORT_VIEW: perm("support", "view"),
+  SUPPORT_UPDATE: perm("support", "update"),
+  IAM_ACCESS_REQUESTS_VIEW: perm("iam.access_requests", "view"),
+  IAM_ACCESS_REQUESTS_APPROVE: perm("iam.access_requests", "approve"),
+  // fe-gap: master-data catalogue screen gates on view (reads are public on the API).
+  MASTER_DATA_VIEW: perm("master_data", "view"),
+  MASTER_DATA_CREATE: perm("master_data", "create"),
+  MASTER_DATA_UPDATE: perm("master_data", "update"),
+  MASTER_DATA_DELETE: perm("master_data", "delete"),
+  BILLING_ENTITLEMENTS_VIEW: perm("billing.entitlements", "view"),
+
+  // ai-catalogue: metric definitions.
+  METRICS_VIEW: perm("metrics", "view"),
+  METRICS_MANAGE: perm("metrics", "manage"),
+  METRICS_APPROVE: perm("metrics", "approve"),
+  // rls: dataset grants and row-level security (Owner: configure).
+  DATA_ACCESS_VIEW: perm("data_access", "view"),
+  DATA_ACCESS_CONFIGURE: perm("data_access", "configure"),
+  // mfa-tenant: workspace security policy (Owner: configure).
+  SECURITY_VIEW: perm("security", "view"),
+  SECURITY_CONFIGURE: perm("security", "configure"),
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

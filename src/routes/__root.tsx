@@ -9,9 +9,12 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { RequestReference } from "@/components/common/RequestReference";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/errors/lovable-error-reporting";
+import { installGlobalErrorReporting, reportClientError } from "../lib/errors/reporter";
+import { installErrorToastReferences, requestIdOf } from "../lib/errors/reference";
 
 function NotFoundComponent() {
   return (
@@ -40,6 +43,8 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    // Production error sink (POST /client-errors); never throws.
+    reportClientError(error, { kind: "boundary", component: "root" });
   }, [error]);
 
   return (
@@ -51,6 +56,9 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+        <div className="flex justify-center">
+          <RequestReference requestId={requestIdOf(error)} />
+        </div>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -124,6 +132,17 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Browser only: report uncaught errors, and give API error toasts their
+  // copyable reference id.
+  useEffect(() => {
+    const uninstallReporting = installGlobalErrorReporting();
+    const uninstallToasts = installErrorToastReferences();
+    return () => {
+      uninstallReporting();
+      uninstallToasts();
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

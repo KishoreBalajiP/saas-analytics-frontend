@@ -6,18 +6,24 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
   return {
     ...actual,
     request: vi.fn(),
+    refreshAccessToken: vi.fn(),
+    announceSignOut: vi.fn(),
   };
 });
 
 const mockedRequest = vi.mocked(client.request);
+const mockedRefresh = vi.mocked(client.refreshAccessToken);
+const mockedAnnounceSignOut = vi.mocked(client.announceSignOut);
 
 import * as authApi from "./index";
 import { getAccessToken } from "@/lib/api/client";
+import { expectsLiveSession } from "@/lib/auth/sessionHint";
 
 beforeEach(() => {
   vi.clearAllMocks();
   client.setAccessToken("tenant", null);
   client.setAccessToken("admin", null);
+  window.localStorage.clear();
 });
 
 describe("authApi", () => {
@@ -58,6 +64,16 @@ describe("authApi", () => {
       expect(body["mfaToken"]).toBe("123456");
     });
 
+    it("remembers that this browser holds a live session (non-secret hint)", async () => {
+      const sessionExpiresAt = new Date(Date.now() + 60_000).toISOString();
+      mockedRequest.mockResolvedValue({ accessToken: "tok", expiresIn: 900, sessionExpiresAt });
+
+      await authApi.loginTenant("acme", { email: "test@acme.com", password: "secret123" });
+
+      expect(expectsLiveSession("tenant")).toBe(true);
+      expect(expectsLiveSession("admin")).toBe(false);
+    });
+
     it("does not store token when response has mfaRequired", async () => {
       mockedRequest.mockResolvedValue({ mfaRequired: true, expiresIn: 0 });
 
@@ -96,32 +112,24 @@ describe("authApi", () => {
   });
 
   describe("refreshTenant()", () => {
-    it("calls POST /auth/refresh with noRefresh flag and stores token", async () => {
-      mockedRequest.mockResolvedValue({ accessToken: "new_tenant_token", expiresIn: 3600 });
+    it("goes through the cross-tab coordinated tenant refresh", async () => {
+      mockedRefresh.mockResolvedValue({ accessToken: "new_tenant_token", expiresIn: 900 });
 
-      await authApi.refreshTenant();
+      const result = await authApi.refreshTenant();
 
-      expect(getAccessToken("tenant")).toBe("new_tenant_token");
-      expect(mockedRequest).toHaveBeenCalledWith("/auth/refresh", {
-        method: "POST",
-        audience: "tenant",
-        noRefresh: true,
-      });
+      expect(result.accessToken).toBe("new_tenant_token");
+      expect(mockedRefresh).toHaveBeenCalledWith("tenant");
+      expect(mockedRequest).not.toHaveBeenCalled();
     });
   });
 
   describe("refreshAdmin()", () => {
-    it("calls POST /admin-auth/refresh with noRefresh flag", async () => {
-      mockedRequest.mockResolvedValue({ accessToken: "new_admin_token", expiresIn: 3600 });
+    it("goes through the cross-tab coordinated admin refresh", async () => {
+      mockedRefresh.mockResolvedValue({ accessToken: "new_admin_token", expiresIn: 900 });
 
       await authApi.refreshAdmin();
 
-      expect(getAccessToken("admin")).toBe("new_admin_token");
-      expect(mockedRequest).toHaveBeenCalledWith("/admin-auth/refresh", {
-        method: "POST",
-        audience: "admin",
-        noRefresh: true,
-      });
+      expect(mockedRefresh).toHaveBeenCalledWith("admin");
     });
   });
 
@@ -137,6 +145,8 @@ describe("authApi", () => {
         method: "POST",
         audience: "tenant",
       });
+      // The other tabs are told, so they sign out too.
+      expect(mockedAnnounceSignOut).toHaveBeenCalledWith("tenant");
     });
 
     it("clears token even if API call fails", async () => {
@@ -146,6 +156,7 @@ describe("authApi", () => {
       await authApi.logoutTenant().catch(() => {});
 
       expect(getAccessToken("tenant")).toBeNull();
+      expect(mockedAnnounceSignOut).toHaveBeenCalledWith("tenant");
     });
   });
 
@@ -157,6 +168,7 @@ describe("authApi", () => {
       await authApi.logoutAdmin();
 
       expect(getAccessToken("admin")).toBeNull();
+      expect(mockedAnnounceSignOut).toHaveBeenCalledWith("admin");
     });
   });
 
@@ -237,7 +249,6 @@ describe("authApi", () => {
       const mfaData = {
         secret: "JBSWY3DPEHPK3PXP",
         otpauthUrl: "otpauth://...",
-        qrCodeDataUrl: "data:image/png;...",
       };
       mockedRequest.mockResolvedValue(mfaData);
 
@@ -252,12 +263,17 @@ describe("authApi", () => {
   });
 
   describe("verifyMfa()", () => {
-    it("calls POST /admin-auth/mfa/verify with code", async () => {
-      mockedRequest.mockResolvedValue({ verified: true });
+    it("calls POST /admin-auth/mfa/verify with code and returns the recovery codes", async () => {
+      mockedRequest.mockResolvedValue({
+        enabled: true,
+        recoveryCodes: ["AAAA-BBBB-CCCC-DDDD"],
+        recoveryCodesRemaining: 1,
+      });
 
       const result = await authApi.verifyMfa("123456");
 
-      expect(result.verified).toBe(true);
+      expect(result.enabled).toBe(true);
+      expect(result.recoveryCodes).toEqual(["AAAA-BBBB-CCCC-DDDD"]);
       expect(mockedRequest).toHaveBeenCalledWith("/admin-auth/mfa/verify", {
         method: "POST",
         audience: "admin",

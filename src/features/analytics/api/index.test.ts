@@ -65,23 +65,46 @@ describe("analyticsApi", () => {
 
     it("serializes dateRange as JSON string", () => {
       const params: AnalyticsQueryParams = {
-        dateRange: { from: "2025-01-01T00:00:00Z", to: "2025-12-31T23:59:59Z" },
+        dateRange: {
+          field: "order_date",
+          from: "2025-01-01T00:00:00Z",
+          to: "2025-12-31T23:59:59Z",
+        },
       };
       const result = analyticsApi.serializeQueryParams(params);
       expect(result["dateRange"]).toBe(
-        JSON.stringify({ from: "2025-01-01T00:00:00Z", to: "2025-12-31T23:59:59Z" }),
+        JSON.stringify({
+          field: "order_date",
+          from: "2025-01-01T00:00:00Z",
+          to: "2025-12-31T23:59:59Z",
+        }),
       );
     });
 
-    it("omits dateRange when both from and to are empty", () => {
-      const params: AnalyticsQueryParams = { dateRange: { from: "", to: "" } };
+    it("sends a relative preset as a preset (resolved by the server at run time)", () => {
+      const params: AnalyticsQueryParams = {
+        dateRange: { field: "order_date", preset: "last_month" },
+      };
+      expect(JSON.parse(analyticsApi.serializeQueryParams(params)["dateRange"] as string)).toEqual({
+        field: "order_date",
+        preset: "last_month",
+      });
+    });
+
+    it("omits dateRange when nothing is selected", () => {
+      const params: AnalyticsQueryParams = { dateRange: { field: "order_date", from: "", to: "" } };
       expect(analyticsApi.serializeQueryParams(params)).toEqual({});
     });
 
-    it("includes dateRange when only from is set", () => {
-      const params: AnalyticsQueryParams = { dateRange: { from: "2025-01-01T00:00:00Z", to: "" } };
+    it("includes dateRange when only from is set and drops the empty bound", () => {
+      const params: AnalyticsQueryParams = {
+        dateRange: { field: "order_date", from: "2025-01-01", to: "" },
+      };
       const result = analyticsApi.serializeQueryParams(params);
-      expect(result["dateRange"]).toBeDefined();
+      expect(JSON.parse(result["dateRange"] as string)).toEqual({
+        field: "order_date",
+        from: "2025-01-01",
+      });
     });
 
     it("serializes metrics as JSON string", () => {
@@ -100,10 +123,21 @@ describe("analyticsApi", () => {
       expect(JSON.parse(result["groupBy"] as string)).toEqual(["category", "region"]);
     });
 
+    it("serializes groupBy with date buckets", () => {
+      const params: AnalyticsQueryParams = {
+        groupBy: ["region", { field: "order_date", bucket: "month" }],
+      };
+      const result = analyticsApi.serializeQueryParams(params);
+      expect(JSON.parse(result["groupBy"] as string)).toEqual([
+        "region",
+        { field: "order_date", bucket: "month" },
+      ]);
+    });
+
     it("serializes orderBy as JSON string", () => {
       const orderBy = [
-        { field: "revenue", dir: "desc" as const },
-        { field: "date", dir: "asc" as const },
+        { field: "revenue", direction: "desc" as const },
+        { field: "date", direction: "asc" as const },
       ];
       const params: AnalyticsQueryParams = { orderBy };
       const result = analyticsApi.serializeQueryParams(params);
@@ -128,10 +162,10 @@ describe("analyticsApi", () => {
         connectorIds: ["abc"],
         filters: [{ field: "x", op: "eq", value: 1 }],
         filtersOp: "and",
-        dateRange: { from: "2025-01-01", to: "2025-12-31" },
+        dateRange: { field: "order_date", from: "2025-01-01", to: "2025-12-31" },
         metrics: [{ field: "x", op: "count" }],
         groupBy: ["x"],
-        orderBy: [{ field: "x", dir: "asc" }],
+        orderBy: [{ field: "x", direction: "asc" }],
         page: 1,
         limit: 25,
       };
@@ -162,18 +196,33 @@ describe("analyticsApi", () => {
 
   describe("runQuery()", () => {
     it("calls GET /analytics with serialized query params", async () => {
-      const result = {
-        rows: [{ category: "A", count: 10 }],
+      // Real backend contract: rows in `data`, totals/columns/pagination in `meta`.
+      const rows = [{ category: "A", count: 10 }];
+      const meta = {
+        executedAt: "2025-01-01T00:00:00Z",
+        cached: false,
         total: 1,
         page: 1,
         pages: 1,
+        limit: 50,
+        columns: ["category", "count"],
+        groupMode: true,
       };
-      const meta = { executedAt: "2025-01-01T00:00:00Z", cached: false };
+      const result = {
+        rows,
+        total: 1,
+        page: 1,
+        pages: 1,
+        limit: 50,
+        columns: ["category", "count"],
+        executedAt: "2025-01-01T00:00:00Z",
+        groupMode: "grouped",
+      };
       mockedRequestFull.mockResolvedValue({
         success: true,
         statusCode: 200,
         message: "OK",
-        data: result,
+        data: rows,
         meta,
         timestamp: "2025-01-01T00:00:00Z",
       });
@@ -276,6 +325,16 @@ describe("analyticsApi", () => {
       await analyticsApi.exportQuery({ connectorIds: ["abc"] }, "xlsx");
       const body2 = mockedRequest.mock.calls[1]?.[1]?.body as Record<string, unknown>;
       expect(body2["format"]).toBe("xlsx");
+    });
+  });
+
+  describe("export status and download", () => {
+    it("reads an export's status and its signed download link", async () => {
+      mockedRequest.mockResolvedValue({});
+      await analyticsApi.getExport("e1");
+      await analyticsApi.downloadExport("e1");
+      expect(mockedRequest).toHaveBeenNthCalledWith(1, "/analytics/exports/e1");
+      expect(mockedRequest).toHaveBeenNthCalledWith(2, "/analytics/exports/e1/download");
     });
   });
 });

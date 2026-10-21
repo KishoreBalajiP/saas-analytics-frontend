@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { AppLink } from "@/components/common/AppLink";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
-import { WidgetView } from "@/components/common/WidgetView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,8 +26,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import * as dashboardsApi from "@/features/dashboards/api";
+import {
+  describeDateRange,
+  draftFromDateRange,
+  dateRangeFromDraft,
+} from "@/features/analytics/dateRange";
+import {
+  BrokenBadge,
+  BrokenDependencyState,
+} from "@/features/datasets/components/BrokenDependency";
+import { isBroken } from "@/features/datasets/lib/brokenDependency";
+import { ApiError } from "@/lib/api/client";
 import type { Dashboard, Widget } from "@/lib/api/types";
 import { useTenantSession } from "@/lib/auth/session";
+import { WidgetPanel } from "./WidgetPanel";
 import { Permissions, hasPermission } from "@/lib/permissions";
 
 const PAGE_LIMIT = 25;
@@ -101,6 +112,9 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
   if (!dashboard) return null;
 
   const widgets = (widgetsQuery.data?.data ?? dashboard.widgets ?? []) as Widget[];
+  // The dashboard's default window (a relative preset is resolved by the
+  // server at each run, in the workspace time zone).
+  const defaultRange = dateRangeFromDraft(draftFromDateRange(dashboard.filters?.["dateRange"]));
   const executionByWidget = new Map(
     (executionQuery.data ?? []).map((entry) => [entry.widgetId, entry]),
   );
@@ -125,6 +139,11 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
           <h2 className="text-2xl font-semibold tracking-tight">{dashboard.name}</h2>
           {dashboard.description && (
             <p className="mt-1 text-sm text-muted-foreground">{dashboard.description}</p>
+          )}
+          {defaultRange && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Default date range: {describeDateRange(defaultRange)}
+            </p>
           )}
         </div>
 
@@ -210,19 +229,38 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between text-base">
                     <span>{widget.name}</span>
-                    <Badge variant="outline" className="capitalize">
-                      {widget.type}
-                    </Badge>
+                    <span className="flex items-center gap-1.5">
+                      <BrokenBadge entity={widget} />
+                      <Badge variant="outline" className="capitalize">
+                        {widget.type}
+                      </Badge>
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  {execution?.error ? (
+                  {isBroken(widget) ? (
+                    <BrokenDependencyState entity={widget} resource="widget" />
+                  ) : execution?.error ? (
                     <ErrorState
-                      error={new Error(execution.error.message)}
+                      error={
+                        execution.error.errors?.length
+                          ? // A rejected widget query lists its field errors.
+                            new ApiError(
+                              execution.error.message,
+                              400,
+                              execution.error.code,
+                              execution.error.errors,
+                            )
+                          : new Error(execution.error.message)
+                      }
                       resource={`${widget.name} widget`}
                     />
                   ) : execution?.result ? (
-                    <WidgetView type={widget.type} result={execution.result} />
+                    <WidgetPanel
+                      dashboardId={dashboardId}
+                      widget={widget}
+                      result={execution.result}
+                    />
                   ) : executionQuery.isLoading ? (
                     <TableSkeleton rows={3} cols={2} />
                   ) : (

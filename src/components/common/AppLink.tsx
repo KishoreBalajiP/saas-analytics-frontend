@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ComponentProps, ReactNode } from "react";
 
-type LinkProps = Omit<ComponentProps<typeof Link>, "to">;
+type LinkProps = Omit<ComponentProps<typeof Link>, "to" | "search">;
 
 /**
  * Router-aware link that accepts a runtime string path (breadcrumbs, dynamic
@@ -9,11 +9,12 @@ type LinkProps = Omit<ComponentProps<typeof Link>, "to">;
  */
 export function AppLink({
   to,
+  search,
   children,
   ...props
-}: LinkProps & { to: string; children?: ReactNode }) {
+}: LinkProps & { to: string; search?: Record<string, string>; children?: ReactNode }) {
   return (
-    <Link to={to as never} {...props}>
+    <Link to={to as never} {...(search ? { search: search as never } : {})} {...props}>
       {children}
     </Link>
   );

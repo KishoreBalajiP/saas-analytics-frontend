@@ -116,10 +116,16 @@ function DashboardContent() {
 
       {isLoading ? <Skeleton className="h-6 w-6 rounded-md my-8" /> : null}
 
-      <ErrorState
-        error={setupUnavailable ? connectorsQuery.error : dashboardsQuery.error}
-        resource="Dashboard"
-      />
+      {setupUnavailable ? (
+        <ErrorState
+          error={connectorsQuery.error ?? dashboardsQuery.error}
+          resource="Dashboard"
+          onRetry={() => {
+            void connectorsQuery.refetch();
+            void dashboardsQuery.refetch();
+          }}
+        />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {quickLinks.map((link) => (

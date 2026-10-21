@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LEGAL_DOCUMENT_VERSION } from "@/content/legal/version";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,10 +91,64 @@ describe("self-service registration and email verification", () => {
     await user.type(screen.getByLabelText("Work email"), "owner@example.test");
     await user.type(screen.getByLabelText("Workspace name"), "Owner Workspace");
     await user.type(screen.getByLabelText("Password"), "StrongPassword123!");
+    await user.click(screen.getByLabelText(/I accept the/)); // onboarding: consent
     await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     await waitFor(() => expect(authApi.registerWorkspace).toHaveBeenCalled());
+    expect(authApi.registerWorkspace.mock.calls[0]?.[0]).toMatchObject({
+      acceptTerms: true,
+      termsVersion: LEGAL_DOCUMENT_VERSION,
+    });
     expect(await screen.findByText(/pending email verification/i)).toBeVisible();
     expect(screen.queryByText(/check your inbox/i)).not.toBeInTheDocument();
+  });
+
+  it("says plainly when the verification email could not be sent", async () => {
+    authApi.registerWorkspace.mockResolvedValue({
+      ok: true,
+      email: "owner@example.test",
+      verificationSent: false,
+      tenant: {
+        id: "tenant-1",
+        name: "Owner Workspace",
+        slug: "owner-workspace",
+        status: "pending",
+        onboardingStatus: "not_started",
+      },
+      owner: { id: "owner-1", name: "Workspace Owner" },
+    });
+    const user = userEvent.setup();
+
+    renderPage();
+    await user.type(screen.getByLabelText("Full name"), "Workspace Owner");
+    await user.type(screen.getByLabelText("Work email"), "owner@example.test");
+    await user.type(screen.getByLabelText("Workspace name"), "Owner Workspace");
+    await user.type(screen.getByLabelText("Password"), "StrongPassword123!");
+    await user.click(screen.getByLabelText(/I accept the/)); // onboarding: consent
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
+
+    expect(await screen.findByText(/could not send the confirmation email/i)).toBeVisible();
+    expect(screen.queryByText(/we sent a confirmation link/i)).not.toBeInTheDocument();
+    expect(screen.getByText("owner-workspace")).toBeVisible();
+  });
+
+  // onboarding: consent is required and linked.
+  it("does not submit without accepting the terms, and links the legal drafts", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(screen.getByLabelText("Full name"), "Workspace Owner");
+    await user.type(screen.getByLabelText("Work email"), "owner@example.test");
+    await user.type(screen.getByLabelText("Workspace name"), "Owner Workspace");
+    await user.type(screen.getByLabelText("Password"), "StrongPassword123!");
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
+    expect(authApi.registerWorkspace).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Terms of Service" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
   });
 });

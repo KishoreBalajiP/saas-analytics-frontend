@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as client from "@/lib/api/client";
 
 // Mock the client module
-vi.mock("@/lib/api/client", () => {
-  const actual = vi.importActual<typeof client>("@/lib/api/client");
+vi.mock("@/lib/api/client", async () => {
+  const actual = await vi.importActual<typeof client>("@/lib/api/client");
   return {
     ...actual,
     request: vi.fn(),
@@ -296,6 +296,36 @@ describe("connectorsApi", () => {
     });
   });
 
+  describe("listSyncRuns()", () => {
+    it("calls GET /connectors/:connectorId/sync-runs with pagination", async () => {
+      const runs = [
+        { id: "r1", connectorId: "abc123", trigger: "manual", status: "succeeded", attempts: 1 },
+      ];
+      mockedRequestPaged.mockResolvedValue({
+        data: runs,
+        meta: { page: 1, limit: 10, total: 1, pages: 1 },
+      });
+
+      const result = await connectorsApi.listSyncRuns("abc123", { page: 1, limit: 10 });
+
+      expect(result.data).toEqual(runs);
+      expect(mockedRequestPaged).toHaveBeenCalledWith("/connectors/abc123/sync-runs", {
+        query: { page: 1, limit: 10 },
+      });
+    });
+
+    it("passes an empty query by default", async () => {
+      mockedRequestPaged.mockResolvedValue({
+        data: [],
+        meta: { page: 1, limit: 20, total: 0, pages: 0 },
+      });
+      await connectorsApi.listSyncRuns("abc123");
+      expect(mockedRequestPaged).toHaveBeenCalledWith("/connectors/abc123/sync-runs", {
+        query: {},
+      });
+    });
+  });
+
   describe("syncMongoDB()", () => {
     it("calls POST /connectors/:connectorId/sync-mongodb with empty body", async () => {
       const syncResult = { accepted: true, jobType: "mongodb_sync" };
@@ -308,6 +338,14 @@ describe("connectorsApi", () => {
         method: "POST",
         body: {},
       });
+    });
+  });
+
+  describe("webhookIngestUrl()", () => {
+    it("returns an absolute URL under the API prefix", () => {
+      const url = connectorsApi.webhookIngestUrl("abc_DEF-123");
+      expect(url).toMatch(/^https?:\/\//);
+      expect(url).toMatch(/\/webhooks\/abc_DEF-123$/);
     });
   });
 });

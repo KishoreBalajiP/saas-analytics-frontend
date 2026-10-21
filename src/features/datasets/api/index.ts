@@ -1,5 +1,52 @@
-import { request, requestPaged, type Query } from "@/lib/api/client";
+import { apiUrl, request, requestPaged, type Query } from "@/lib/api/client";
 import type { Connector, ConnectorType, ConnectorTypeInfo, PreviewResult } from "@/lib/api/types";
+
+export type SyncRunStatus =
+  "queued" | "running" | "retrying" | "succeeded" | "failed" | "abandoned" | "cancelled";
+
+export type SyncRunTrigger = "manual" | "webhook" | "recovery" | "schedule";
+
+/** One connector sync (GET /connectors/:id/sync-runs). */
+export interface SyncRun {
+  id: string;
+  connectorId: string;
+  trigger: SyncRunTrigger;
+  jobType?: string;
+  status: SyncRunStatus;
+  attempts: number;
+  maxAttempts?: number | null;
+  recoveryAttempt?: number;
+  /** Run this automatic recovery replaced (trigger "recovery"). */
+  recoveredFrom?: string | null;
+  /** User who started the sync (null for webhook/recovery runs). */
+  requestedBy?: string | null;
+  filename?: string | null;
+  queuedAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  rows?: {
+    received?: number;
+    upserted?: number;
+    matched?: number;
+    skipped?: number;
+    failed?: number;
+  } | null;
+  error?: { code?: string | null; message?: string | null } | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Response of the sync endpoints (202). */
+export interface SyncAccepted {
+  accepted: boolean;
+  jobType?: string;
+  filename?: string | null;
+  /** Always false since sync conflicts answer 409 SYNC_IN_PROGRESS. */
+  alreadyQueued?: boolean;
+  syncRunId?: string;
+  status?: SyncRunStatus;
+}
 
 export function listTypes() {
   return request<ConnectorTypeInfo[]>("/connectors/types");
@@ -29,6 +76,8 @@ export function update(
     status?: string;
     config?: Record<string, unknown>;
     fieldMapping?: Record<string, string>;
+    /** One-way upgrade of a legacy webhook to timestamp-bound signatures. */
+    webhookSignatureVersion?: 2;
   },
 ) {
   return request<Connector>(`/connectors/${connectorId}`, { method: "PATCH", body });
@@ -61,17 +110,49 @@ export function previewFile(connectorId: string, file: File) {
 export function syncFile(connectorId: string, file: File) {
   const formData = new FormData();
   formData.append("file", file);
-  return request<{
-    accepted: boolean;
-    jobType?: string;
-    filename?: string;
-    alreadyQueued?: boolean;
-  }>(`/connectors/${connectorId}/sync`, { method: "POST", formData });
+  return request<SyncAccepted>(`/connectors/${connectorId}/sync`, { method: "POST", formData });
 }
 
 export function syncMongoDB(connectorId: string) {
-  return request<{ accepted: boolean; jobType?: string }>(
-    `/connectors/${connectorId}/sync-mongodb`,
-    { method: "POST", body: {} },
-  );
+  return request<SyncAccepted>(`/connectors/${connectorId}/sync-mongodb`, {
+    method: "POST",
+    body: {},
+  });
+}
+
+/** Sync history for one connector, newest first (connectors.view). */
+export function listSyncRuns(connectorId: string, query: Query = {}) {
+  return requestPaged<SyncRun>(`/connectors/${connectorId}/sync-runs`, { query });
+}
+
+/** Absolute public URL senders POST webhook deliveries to. */
+export function webhookIngestUrl(webhookToken: string) {
+  return apiUrl(`/webhooks/${encodeURIComponent(webhookToken)}`);
+}
+
+// datasets: typed dataset schema (GET /connectors/:id/schema).
+export type DatasetFieldType = "string" | "number" | "integer" | "boolean" | "date" | "datetime";
+
+export interface DatasetField {
+  name: string;
+  type: DatasetFieldType;
+  nullable: boolean;
+  nullRate: number;
+  distinctEstimate: number;
+  personal: boolean;
+  displayName: string | null;
+  sample: unknown[];
+}
+
+export interface DatasetSchema {
+  connectorId: string;
+  version: number;
+  profiledAt: string;
+  fields: DatasetField[];
+  dateField: string | null;
+  keyField: string | null;
+}
+
+export function getSchema(connectorId: string) {
+  return request<DatasetSchema | null>(`/connectors/${connectorId}/schema`);
 }

@@ -3,15 +3,22 @@ import {
   Activity,
   BadgeDollarSign,
   Building2,
+  Database,
   FileCheck,
+  Flag,
   Headphones,
   Inbox,
+  KeyRound,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
   Monitor,
   ScrollText,
+  Trash2,
+  Settings2,
   Shield,
+  ShieldAlert,
   UserCog,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -27,8 +34,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { adminScopeOf, adminTypeLabel, describeScope } from "@/features/admin/roles";
 import { useAdminSession } from "@/lib/auth/session";
-import { Permissions, hasPermission } from "@/lib/permissions";
+import { Permissions, hasAnyPermission, hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
@@ -36,7 +44,8 @@ const ADMIN_NAV = [
     to: "/admin/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    permission: Permissions.MONITORING_VIEW,
+    // GET /admin/dashboard/summary requires iam.tenants.view.
+    permission: Permissions.IAM_TENANTS_VIEW,
     description: "Admin overview and system monitoring",
   },
   {
@@ -46,12 +55,20 @@ const ADMIN_NAV = [
     permission: Permissions.IAM_TENANTS_VIEW,
     description: "Manage workspace tenants and members",
   },
+  // fe-gap: platform-wide tenant deletion queue.
+  {
+    to: "/admin/tenant-deletions",
+    label: "Tenant deletions",
+    icon: Trash2,
+    permission: Permissions.IAM_TENANTS_VIEW,
+    description: "Scheduled and completed workspace deletions",
+  },
   {
     to: "/admin/access-requests",
     label: "Access requests",
     description: "Review workspace access requests",
     icon: Inbox,
-    permission: Permissions.IAM_TENANTS_VIEW,
+    permission: Permissions.IAM_ACCESS_REQUESTS_VIEW,
   },
   {
     to: "/admin/admins",
@@ -85,8 +102,8 @@ const ADMIN_NAV = [
     to: "/admin/entitlements",
     label: "Entitlements",
     icon: BadgeDollarSign,
-    permission: Permissions.BILLING_ENTITLEMENTS_OVERRIDE,
-    description: "Manage entitlements and overrides",
+    permission: Permissions.BILLING_ENTITLEMENTS_VIEW,
+    description: "Inspect entitlements and overrides",
   },
   {
     to: "/admin/audit-logs",
@@ -107,14 +124,22 @@ const ADMIN_NAV = [
     label: "Compliance",
     icon: FileCheck,
     permission: Permissions.COMPLIANCE_VIEW,
-    description: "View compliance reports and settings",
+    description: "Data-subject requests (export, delete, restrict)",
   },
   {
     to: "/admin/support",
     label: "Support",
     icon: Headphones,
-    permission: Permissions.SUPPORT_LOOKUP,
-    description: "Access support tools and lookup",
+    permission: Permissions.SUPPORT_VIEW,
+    description: "Tenant diagnostics and account support",
+  },
+  // detection: platform security alerts (roadmap 2.6)
+  {
+    to: "/admin/security-alerts",
+    label: "Security alerts",
+    icon: ShieldAlert,
+    permission: Permissions.SECURITY_ALERTS_VIEW,
+    description: "Triage platform security detections",
   },
   {
     to: "/admin/monitoring",
@@ -123,19 +148,67 @@ const ADMIN_NAV = [
     permission: Permissions.MONITORING_VIEW,
     description: "Monitor system health and metrics",
   },
+  // config: platform configuration (roadmap 2.4).
+  {
+    to: "/admin/settings",
+    label: "Settings",
+    icon: Settings2,
+    permission: Permissions.SETTINGS_VIEW,
+    description: "Platform defaults inherited by workspaces",
+  },
+  {
+    to: "/admin/feature-flags",
+    label: "Feature flags",
+    icon: Flag,
+    permission: Permissions.FEATURE_FLAGS_VIEW,
+    description: "Roll features out to workspaces",
+  },
+  // fe-gap: shared reference catalogues.
+  {
+    to: "/admin/master-data",
+    label: "Master data",
+    icon: Database,
+    permission: Permissions.MASTER_DATA_VIEW,
+    description: "Shared reference catalogues",
+  },
+  {
+    to: "/admin/email-templates",
+    label: "Email templates",
+    icon: Mail,
+    permission: Permissions.EMAIL_TEMPLATES_VIEW,
+    description: "Edit transactional email templates",
+  },
 ];
+
+// roles: platform-wide surfaces the backend refuses to tenant-scoped admins
+// (`adminScope.platform()`, 403 ADMIN_SCOPE_DENIED), so they are hidden for them.
+const PLATFORM_ONLY_NAV: ReadonlySet<string> = new Set([
+  "/admin/access-requests",
+  "/admin/admins",
+  "/admin/roles",
+  "/admin/plans",
+  "/admin/monitoring",
+  "/admin/tenant-deletions",
+  "/admin/master-data",
+]);
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { status, me, permissions, signOut } = useAdminSession();
+  const scope = adminScopeOf(me);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // adminauth: an enrolment-only session (privileged admin without MFA)
+  // can use nothing but MFA setup; the server refuses everything else.
+  const mustEnrolMfa = status === "authenticated" && Boolean(me?.mfaEnrollmentRequired);
+
   useEffect(() => {
     if (status === "anonymous") void navigate({ to: "/admin/login" });
-  }, [status, navigate]);
+    else if (mustEnrolMfa) void navigate({ to: "/admin/mfa-setup" });
+  }, [status, mustEnrolMfa, navigate]);
 
-  if (status !== "authenticated") {
+  if (status !== "authenticated" || mustEnrolMfa) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-8">
         <div className="w-full max-w-sm space-y-3">
@@ -160,7 +233,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <span className="font-display text-sm font-semibold tracking-tight">Admin Portal</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Admin navigation">
-          {ADMIN_NAV.filter((item) => hasPermission(permissions, item.permission)).map((item) => {
+          {ADMIN_NAV.filter(
+            (item) =>
+              hasPermission(permissions, item.permission) &&
+              (scope.type === "platform" || !PLATFORM_ONLY_NAV.has(item.to)),
+          ).map((item) => {
             const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
             return (
               <AppLink
@@ -209,7 +286,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Button>
           <div className="flex items-center gap-2">
             <div className="text-sm text-muted-foreground">Admin portal</div>
-            <span className="text-foreground font-medium">{me?.adminType ?? "admin"}</span>
+            <span className="text-foreground font-medium">{adminTypeLabel(me?.adminType)}</span>
+            <span
+              className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+              data-testid="admin-scope"
+            >
+              {describeScope(scope)}
+            </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <DropdownMenu>
@@ -222,9 +305,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="truncate">{me?.email}</DropdownMenuLabel>
                 <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
-                  {me?.adminType ?? "admin"}
+                  {adminTypeLabel(me?.adminType)} · {describeScope(scope)}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {/* adminauth: MFA, recovery codes and password */}
+                <DropdownMenuItem onClick={() => void navigate({ to: "/admin/security" })}>
+                  <KeyRound className="mr-2 h-4 w-4" /> Account security
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={async () => {
                     await signOut();

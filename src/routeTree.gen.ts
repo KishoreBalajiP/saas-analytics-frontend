@@ -14,15 +14,22 @@ import { Route as AcceptableUseRouteImport } from './routes/acceptable-use'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApiKeysRouteImport } from './routes/api-keys'
+import { Route as AskRouteImport } from './routes/ask'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DashboardsRouteImport } from './routes/dashboards'
 import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as EmbedRouteImport } from './routes/embed'
+import { Route as EmbeddedRouteImport } from './routes/embedded'
+import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MetricsRouteImport } from './routes/metrics'
+import { Route as MfaSetupRouteImport } from './routes/mfa-setup'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -30,20 +37,33 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as RequestAccessRouteImport } from './routes/request-access'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ShareRouteImport } from './routes/share'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as AdminAcceptInviteRouteImport } from './routes/admin.accept-invite'
 import { Route as AdminAccessLogsRouteImport } from './routes/admin.access-logs'
 import { Route as AdminAccessRequestsRouteImport } from './routes/admin.access-requests'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminComplianceRouteImport } from './routes/admin.compliance'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminEmailTemplatesRouteImport } from './routes/admin.email-templates'
 import { Route as AdminEntitlementsRouteImport } from './routes/admin.entitlements'
+import { Route as AdminFeatureFlagsRouteImport } from './routes/admin.feature-flags'
+import { Route as AdminForgotPasswordRouteImport } from './routes/admin.forgot-password'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminMasterDataRouteImport } from './routes/admin.master-data'
+import { Route as AdminMfaSetupRouteImport } from './routes/admin.mfa-setup'
 import { Route as AdminMonitoringRouteImport } from './routes/admin.monitoring'
 import { Route as AdminPlansRouteImport } from './routes/admin.plans'
+import { Route as AdminResetPasswordRouteImport } from './routes/admin.reset-password'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
+import { Route as AdminSecurityRouteImport } from './routes/admin.security'
+import { Route as AdminSecurityAlertsRouteImport } from './routes/admin.security-alerts'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
+import { Route as AdminTenantDeletionsRouteImport } from './routes/admin.tenant-deletions'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AlertsAlertIdRouteImport } from './routes/alerts.$alertId'
 import { Route as DashboardsDashboardIdRouteImport } from './routes/dashboards.$dashboardId'
@@ -54,6 +74,9 @@ import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginForgotRouteImport } from './routes/login.forgot'
 import { Route as LoginResetRouteImport } from './routes/login.reset'
 import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
+import { Route as SettingsMembersRouteImport } from './routes/settings_.members'
+import { Route as SettingsRolesRouteImport } from './routes/settings_.roles'
+import { Route as SettingsWorkspaceRouteImport } from './routes/settings_.workspace'
 import { Route as AdminTenantsTenantIdRouteImport } from './routes/admin.tenants.$tenantId'
 import { Route as AlertsAlertIdEditRouteImport } from './routes/alerts.$alertId.edit'
 import { Route as DashboardsDashboardIdEditRouteImport } from './routes/dashboards.$dashboardId.edit'
@@ -84,6 +107,11 @@ const ApiKeysRoute = ApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AskRoute = AskRouteImport.update({
+  id: '/ask',
+  path: '/ask',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BillingRoute = BillingRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -109,14 +137,39 @@ const DatasetsRoute = DatasetsRouteImport.update({
   path: '/datasets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevelopersRoute = DevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmbedRoute = EmbedRouteImport.update({
   id: '/embed',
   path: '/embed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmbeddedRoute = EmbeddedRouteImport.update({
+  id: '/embedded',
+  path: '/embedded',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightsRoute = InsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MetricsRoute = MetricsRouteImport.update({
+  id: '/metrics',
+  path: '/metrics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MfaSetupRoute = MfaSetupRouteImport.update({
+  id: '/mfa-setup',
+  path: '/mfa-setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -127,6 +180,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -164,9 +222,24 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareRoute = ShareRouteImport.update({
+  id: '/share',
+  path: '/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAcceptInviteRoute = AdminAcceptInviteRouteImport.update({
+  id: '/admin/accept-invite',
+  path: '/admin/accept-invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAccessLogsRoute = AdminAccessLogsRouteImport.update({
@@ -199,14 +272,39 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
   path: '/admin/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminEmailTemplatesRoute = AdminEmailTemplatesRouteImport.update({
+  id: '/admin/email-templates',
+  path: '/admin/email-templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminEntitlementsRoute = AdminEntitlementsRouteImport.update({
   id: '/admin/entitlements',
   path: '/admin/entitlements',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFeatureFlagsRoute = AdminFeatureFlagsRouteImport.update({
+  id: '/admin/feature-flags',
+  path: '/admin/feature-flags',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminForgotPasswordRoute = AdminForgotPasswordRouteImport.update({
+  id: '/admin/forgot-password',
+  path: '/admin/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminMasterDataRoute = AdminMasterDataRouteImport.update({
+  id: '/admin/master-data',
+  path: '/admin/master-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminMfaSetupRoute = AdminMfaSetupRouteImport.update({
+  id: '/admin/mfa-setup',
+  path: '/admin/mfa-setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminMonitoringRoute = AdminMonitoringRouteImport.update({
@@ -219,9 +317,29 @@ const AdminPlansRoute = AdminPlansRouteImport.update({
   path: '/admin/plans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminResetPasswordRoute = AdminResetPasswordRouteImport.update({
+  id: '/admin/reset-password',
+  path: '/admin/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRolesRoute = AdminRolesRouteImport.update({
   id: '/admin/roles',
   path: '/admin/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSecurityRoute = AdminSecurityRouteImport.update({
+  id: '/admin/security',
+  path: '/admin/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSecurityAlertsRoute = AdminSecurityAlertsRouteImport.update({
+  id: '/admin/security-alerts',
+  path: '/admin/security-alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
@@ -232,6 +350,11 @@ const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
 const AdminSupportRoute = AdminSupportRouteImport.update({
   id: '/admin/support',
   path: '/admin/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTenantDeletionsRoute = AdminTenantDeletionsRouteImport.update({
+  id: '/admin/tenant-deletions',
+  path: '/admin/tenant-deletions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTenantsRoute = AdminTenantsRouteImport.update({
@@ -284,6 +407,21 @@ const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
   path: '/$reportId',
   getParentRoute: () => ReportsRoute,
 } as any)
+const SettingsMembersRoute = SettingsMembersRouteImport.update({
+  id: '/settings_/members',
+  path: '/settings/members',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRolesRoute = SettingsRolesRouteImport.update({
+  id: '/settings_/roles',
+  path: '/settings/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsWorkspaceRoute = SettingsWorkspaceRouteImport.update({
+  id: '/settings_/workspace',
+  path: '/settings/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminTenantsTenantIdRoute = AdminTenantsTenantIdRouteImport.update({
   id: '/$tenantId',
   path: '/$tenantId',
@@ -312,15 +450,22 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
+  '/ask': typeof AskRoute
   '/billing': typeof BillingRoute
   '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
+  '/developers': typeof DevelopersRoute
   '/embed': typeof EmbedRoute
+  '/embedded': typeof EmbeddedRoute
+  '/insights': typeof InsightsRoute
   '/login': typeof LoginRouteWithChildren
+  '/metrics': typeof MetricsRoute
+  '/mfa-setup': typeof MfaSetupRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
@@ -328,20 +473,33 @@ export interface FileRoutesByFullPath {
   '/request-access': typeof RequestAccessRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
+  '/share': typeof ShareRoute
   '/terms': typeof TermsRoute
+  '/unsubscribe': typeof UnsubscribeRoute
+  '/admin/accept-invite': typeof AdminAcceptInviteRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/access-requests': typeof AdminAccessRequestsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/email-templates': typeof AdminEmailTemplatesRoute
   '/admin/entitlements': typeof AdminEntitlementsRoute
+  '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/forgot-password': typeof AdminForgotPasswordRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/master-data': typeof AdminMasterDataRoute
+  '/admin/mfa-setup': typeof AdminMfaSetupRoute
   '/admin/monitoring': typeof AdminMonitoringRoute
   '/admin/plans': typeof AdminPlansRoute
+  '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/security': typeof AdminSecurityRoute
+  '/admin/security-alerts': typeof AdminSecurityAlertsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
+  '/admin/tenant-deletions': typeof AdminTenantDeletionsRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
@@ -350,6 +508,9 @@ export interface FileRoutesByFullPath {
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/roles': typeof SettingsRolesRoute
+  '/settings/workspace': typeof SettingsWorkspaceRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
   '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
@@ -363,13 +524,20 @@ export interface FileRoutesByTo {
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
+  '/ask': typeof AskRoute
   '/billing': typeof BillingRoute
   '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
+  '/developers': typeof DevelopersRoute
   '/embed': typeof EmbedRoute
+  '/embedded': typeof EmbeddedRoute
+  '/insights': typeof InsightsRoute
+  '/metrics': typeof MetricsRoute
+  '/mfa-setup': typeof MfaSetupRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
@@ -377,20 +545,33 @@ export interface FileRoutesByTo {
   '/request-access': typeof RequestAccessRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
+  '/share': typeof ShareRoute
   '/terms': typeof TermsRoute
+  '/unsubscribe': typeof UnsubscribeRoute
+  '/admin/accept-invite': typeof AdminAcceptInviteRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/access-requests': typeof AdminAccessRequestsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/email-templates': typeof AdminEmailTemplatesRoute
   '/admin/entitlements': typeof AdminEntitlementsRoute
+  '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/forgot-password': typeof AdminForgotPasswordRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/master-data': typeof AdminMasterDataRoute
+  '/admin/mfa-setup': typeof AdminMfaSetupRoute
   '/admin/monitoring': typeof AdminMonitoringRoute
   '/admin/plans': typeof AdminPlansRoute
+  '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/security': typeof AdminSecurityRoute
+  '/admin/security-alerts': typeof AdminSecurityAlertsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
+  '/admin/tenant-deletions': typeof AdminTenantDeletionsRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
@@ -399,6 +580,9 @@ export interface FileRoutesByTo {
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/roles': typeof SettingsRolesRoute
+  '/settings/workspace': typeof SettingsWorkspaceRoute
   '/datasets': typeof DatasetsIndexRoute
   '/login': typeof LoginIndexRoute
   '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
@@ -413,15 +597,22 @@ export interface FileRoutesById {
   '/alerts': typeof AlertsRouteWithChildren
   '/analytics': typeof AnalyticsRoute
   '/api-keys': typeof ApiKeysRoute
+  '/ask': typeof AskRoute
   '/billing': typeof BillingRoute
   '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/dashboards': typeof DashboardsRouteWithChildren
   '/datasets': typeof DatasetsRouteWithChildren
+  '/developers': typeof DevelopersRoute
   '/embed': typeof EmbedRoute
+  '/embedded': typeof EmbeddedRoute
+  '/insights': typeof InsightsRoute
   '/login': typeof LoginRouteWithChildren
+  '/metrics': typeof MetricsRoute
+  '/mfa-setup': typeof MfaSetupRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
@@ -429,20 +620,33 @@ export interface FileRoutesById {
   '/request-access': typeof RequestAccessRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
+  '/share': typeof ShareRoute
   '/terms': typeof TermsRoute
+  '/unsubscribe': typeof UnsubscribeRoute
+  '/admin/accept-invite': typeof AdminAcceptInviteRoute
   '/admin/access-logs': typeof AdminAccessLogsRoute
   '/admin/access-requests': typeof AdminAccessRequestsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/compliance': typeof AdminComplianceRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/email-templates': typeof AdminEmailTemplatesRoute
   '/admin/entitlements': typeof AdminEntitlementsRoute
+  '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/forgot-password': typeof AdminForgotPasswordRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/master-data': typeof AdminMasterDataRoute
+  '/admin/mfa-setup': typeof AdminMfaSetupRoute
   '/admin/monitoring': typeof AdminMonitoringRoute
   '/admin/plans': typeof AdminPlansRoute
+  '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/security': typeof AdminSecurityRoute
+  '/admin/security-alerts': typeof AdminSecurityAlertsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
+  '/admin/tenant-deletions': typeof AdminTenantDeletionsRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/alerts/$alertId': typeof AlertsAlertIdRouteWithChildren
   '/dashboards/$dashboardId': typeof DashboardsDashboardIdRouteWithChildren
@@ -451,6 +655,9 @@ export interface FileRoutesById {
   '/login/forgot': typeof LoginForgotRoute
   '/login/reset': typeof LoginResetRoute
   '/reports/$reportId': typeof ReportsReportIdRouteWithChildren
+  '/settings_/members': typeof SettingsMembersRoute
+  '/settings_/roles': typeof SettingsRolesRoute
+  '/settings_/workspace': typeof SettingsWorkspaceRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/login/': typeof LoginIndexRoute
   '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
@@ -466,15 +673,22 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/analytics'
     | '/api-keys'
+    | '/ask'
     | '/billing'
     | '/cookies'
     | '/dashboard'
     | '/dashboards'
     | '/datasets'
+    | '/developers'
     | '/embed'
+    | '/embedded'
+    | '/insights'
     | '/login'
+    | '/metrics'
+    | '/mfa-setup'
     | '/notifications'
     | '/onboarding'
+    | '/pricing'
     | '/privacy'
     | '/profile'
     | '/register'
@@ -482,20 +696,33 @@ export interface FileRouteTypes {
     | '/request-access'
     | '/security'
     | '/settings'
+    | '/share'
     | '/terms'
+    | '/unsubscribe'
+    | '/admin/accept-invite'
     | '/admin/access-logs'
     | '/admin/access-requests'
     | '/admin/admins'
     | '/admin/audit-logs'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/email-templates'
     | '/admin/entitlements'
+    | '/admin/feature-flags'
+    | '/admin/forgot-password'
     | '/admin/login'
+    | '/admin/master-data'
+    | '/admin/mfa-setup'
     | '/admin/monitoring'
     | '/admin/plans'
+    | '/admin/reset-password'
     | '/admin/roles'
+    | '/admin/security'
+    | '/admin/security-alerts'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/support'
+    | '/admin/tenant-deletions'
     | '/admin/tenants'
     | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
@@ -504,6 +731,9 @@ export interface FileRouteTypes {
     | '/login/forgot'
     | '/login/reset'
     | '/reports/$reportId'
+    | '/settings/members'
+    | '/settings/roles'
+    | '/settings/workspace'
     | '/datasets/'
     | '/login/'
     | '/admin/tenants/$tenantId'
@@ -517,13 +747,20 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/analytics'
     | '/api-keys'
+    | '/ask'
     | '/billing'
     | '/cookies'
     | '/dashboard'
     | '/dashboards'
+    | '/developers'
     | '/embed'
+    | '/embedded'
+    | '/insights'
+    | '/metrics'
+    | '/mfa-setup'
     | '/notifications'
     | '/onboarding'
+    | '/pricing'
     | '/privacy'
     | '/profile'
     | '/register'
@@ -531,20 +768,33 @@ export interface FileRouteTypes {
     | '/request-access'
     | '/security'
     | '/settings'
+    | '/share'
     | '/terms'
+    | '/unsubscribe'
+    | '/admin/accept-invite'
     | '/admin/access-logs'
     | '/admin/access-requests'
     | '/admin/admins'
     | '/admin/audit-logs'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/email-templates'
     | '/admin/entitlements'
+    | '/admin/feature-flags'
+    | '/admin/forgot-password'
     | '/admin/login'
+    | '/admin/master-data'
+    | '/admin/mfa-setup'
     | '/admin/monitoring'
     | '/admin/plans'
+    | '/admin/reset-password'
     | '/admin/roles'
+    | '/admin/security'
+    | '/admin/security-alerts'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/support'
+    | '/admin/tenant-deletions'
     | '/admin/tenants'
     | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
@@ -553,6 +803,9 @@ export interface FileRouteTypes {
     | '/login/forgot'
     | '/login/reset'
     | '/reports/$reportId'
+    | '/settings/members'
+    | '/settings/roles'
+    | '/settings/workspace'
     | '/datasets'
     | '/login'
     | '/admin/tenants/$tenantId'
@@ -566,15 +819,22 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/analytics'
     | '/api-keys'
+    | '/ask'
     | '/billing'
     | '/cookies'
     | '/dashboard'
     | '/dashboards'
     | '/datasets'
+    | '/developers'
     | '/embed'
+    | '/embedded'
+    | '/insights'
     | '/login'
+    | '/metrics'
+    | '/mfa-setup'
     | '/notifications'
     | '/onboarding'
+    | '/pricing'
     | '/privacy'
     | '/profile'
     | '/register'
@@ -582,20 +842,33 @@ export interface FileRouteTypes {
     | '/request-access'
     | '/security'
     | '/settings'
+    | '/share'
     | '/terms'
+    | '/unsubscribe'
+    | '/admin/accept-invite'
     | '/admin/access-logs'
     | '/admin/access-requests'
     | '/admin/admins'
     | '/admin/audit-logs'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/email-templates'
     | '/admin/entitlements'
+    | '/admin/feature-flags'
+    | '/admin/forgot-password'
     | '/admin/login'
+    | '/admin/master-data'
+    | '/admin/mfa-setup'
     | '/admin/monitoring'
     | '/admin/plans'
+    | '/admin/reset-password'
     | '/admin/roles'
+    | '/admin/security'
+    | '/admin/security-alerts'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/support'
+    | '/admin/tenant-deletions'
     | '/admin/tenants'
     | '/alerts/$alertId'
     | '/dashboards/$dashboardId'
@@ -604,6 +877,9 @@ export interface FileRouteTypes {
     | '/login/forgot'
     | '/login/reset'
     | '/reports/$reportId'
+    | '/settings_/members'
+    | '/settings_/roles'
+    | '/settings_/workspace'
     | '/datasets/'
     | '/login/'
     | '/admin/tenants/$tenantId'
@@ -618,15 +894,22 @@ export interface RootRouteChildren {
   AlertsRoute: typeof AlertsRouteWithChildren
   AnalyticsRoute: typeof AnalyticsRoute
   ApiKeysRoute: typeof ApiKeysRoute
+  AskRoute: typeof AskRoute
   BillingRoute: typeof BillingRoute
   CookiesRoute: typeof CookiesRoute
   DashboardRoute: typeof DashboardRoute
   DashboardsRoute: typeof DashboardsRouteWithChildren
   DatasetsRoute: typeof DatasetsRouteWithChildren
+  DevelopersRoute: typeof DevelopersRoute
   EmbedRoute: typeof EmbedRoute
+  EmbeddedRoute: typeof EmbeddedRoute
+  InsightsRoute: typeof InsightsRoute
   LoginRoute: typeof LoginRouteWithChildren
+  MetricsRoute: typeof MetricsRoute
+  MfaSetupRoute: typeof MfaSetupRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
@@ -634,22 +917,38 @@ export interface RootRouteChildren {
   RequestAccessRoute: typeof RequestAccessRoute
   SecurityRoute: typeof SecurityRoute
   SettingsRoute: typeof SettingsRoute
+  ShareRoute: typeof ShareRoute
   TermsRoute: typeof TermsRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
+  AdminAcceptInviteRoute: typeof AdminAcceptInviteRoute
   AdminAccessLogsRoute: typeof AdminAccessLogsRoute
   AdminAccessRequestsRoute: typeof AdminAccessRequestsRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminComplianceRoute: typeof AdminComplianceRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminEmailTemplatesRoute: typeof AdminEmailTemplatesRoute
   AdminEntitlementsRoute: typeof AdminEntitlementsRoute
+  AdminFeatureFlagsRoute: typeof AdminFeatureFlagsRoute
+  AdminForgotPasswordRoute: typeof AdminForgotPasswordRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminMasterDataRoute: typeof AdminMasterDataRoute
+  AdminMfaSetupRoute: typeof AdminMfaSetupRoute
   AdminMonitoringRoute: typeof AdminMonitoringRoute
   AdminPlansRoute: typeof AdminPlansRoute
+  AdminResetPasswordRoute: typeof AdminResetPasswordRoute
   AdminRolesRoute: typeof AdminRolesRoute
+  AdminSecurityRoute: typeof AdminSecurityRoute
+  AdminSecurityAlertsRoute: typeof AdminSecurityAlertsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminSupportRoute: typeof AdminSupportRoute
+  AdminTenantDeletionsRoute: typeof AdminTenantDeletionsRoute
   AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
   InviteAcceptRoute: typeof InviteAcceptRoute
+  SettingsMembersRoute: typeof SettingsMembersRoute
+  SettingsRolesRoute: typeof SettingsRolesRoute
+  SettingsWorkspaceRoute: typeof SettingsWorkspaceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -689,6 +988,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiKeysRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ask': {
+      id: '/ask'
+      path: '/ask'
+      fullPath: '/ask'
+      preLoaderRoute: typeof AskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/billing': {
       id: '/billing'
       path: '/billing'
@@ -724,6 +1030,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/developers': {
+      id: '/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof DevelopersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/embed': {
       id: '/embed'
       path: '/embed'
@@ -731,11 +1044,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmbedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/embedded': {
+      id: '/embedded'
+      path: '/embedded'
+      fullPath: '/embedded'
+      preLoaderRoute: typeof EmbeddedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insights': {
+      id: '/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof InsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/metrics': {
+      id: '/metrics'
+      path: '/metrics'
+      fullPath: '/metrics'
+      preLoaderRoute: typeof MetricsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mfa-setup': {
+      id: '/mfa-setup'
+      path: '/mfa-setup'
+      fullPath: '/mfa-setup'
+      preLoaderRoute: typeof MfaSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -750,6 +1091,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -801,11 +1149,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share': {
+      id: '/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof ShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/accept-invite': {
+      id: '/admin/accept-invite'
+      path: '/admin/accept-invite'
+      fullPath: '/admin/accept-invite'
+      preLoaderRoute: typeof AdminAcceptInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/access-logs': {
@@ -850,6 +1219,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/email-templates': {
+      id: '/admin/email-templates'
+      path: '/admin/email-templates'
+      fullPath: '/admin/email-templates'
+      preLoaderRoute: typeof AdminEmailTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/entitlements': {
       id: '/admin/entitlements'
       path: '/admin/entitlements'
@@ -857,11 +1233,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEntitlementsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/feature-flags': {
+      id: '/admin/feature-flags'
+      path: '/admin/feature-flags'
+      fullPath: '/admin/feature-flags'
+      preLoaderRoute: typeof AdminFeatureFlagsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/forgot-password': {
+      id: '/admin/forgot-password'
+      path: '/admin/forgot-password'
+      fullPath: '/admin/forgot-password'
+      preLoaderRoute: typeof AdminForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/master-data': {
+      id: '/admin/master-data'
+      path: '/admin/master-data'
+      fullPath: '/admin/master-data'
+      preLoaderRoute: typeof AdminMasterDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/mfa-setup': {
+      id: '/admin/mfa-setup'
+      path: '/admin/mfa-setup'
+      fullPath: '/admin/mfa-setup'
+      preLoaderRoute: typeof AdminMfaSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/monitoring': {
@@ -878,11 +1282,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPlansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/reset-password': {
+      id: '/admin/reset-password'
+      path: '/admin/reset-password'
+      fullPath: '/admin/reset-password'
+      preLoaderRoute: typeof AdminResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/roles': {
       id: '/admin/roles'
       path: '/admin/roles'
       fullPath: '/admin/roles'
       preLoaderRoute: typeof AdminRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/security': {
+      id: '/admin/security'
+      path: '/admin/security'
+      fullPath: '/admin/security'
+      preLoaderRoute: typeof AdminSecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/security-alerts': {
+      id: '/admin/security-alerts'
+      path: '/admin/security-alerts'
+      fullPath: '/admin/security-alerts'
+      preLoaderRoute: typeof AdminSecurityAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/subscriptions': {
@@ -897,6 +1329,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/support'
       fullPath: '/admin/support'
       preLoaderRoute: typeof AdminSupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/tenant-deletions': {
+      id: '/admin/tenant-deletions'
+      path: '/admin/tenant-deletions'
+      fullPath: '/admin/tenant-deletions'
+      preLoaderRoute: typeof AdminTenantDeletionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/tenants': {
@@ -968,6 +1407,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/reports/$reportId'
       preLoaderRoute: typeof ReportsReportIdRouteImport
       parentRoute: typeof ReportsRoute
+    }
+    '/settings_/members': {
+      id: '/settings_/members'
+      path: '/settings/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof SettingsMembersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings_/roles': {
+      id: '/settings_/roles'
+      path: '/settings/roles'
+      fullPath: '/settings/roles'
+      preLoaderRoute: typeof SettingsRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings_/workspace': {
+      id: '/settings_/workspace'
+      path: '/settings/workspace'
+      fullPath: '/settings/workspace'
+      preLoaderRoute: typeof SettingsWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/tenants/$tenantId': {
       id: '/admin/tenants/$tenantId'
@@ -1117,15 +1577,22 @@ const rootRouteChildren: RootRouteChildren = {
   AlertsRoute: AlertsRouteWithChildren,
   AnalyticsRoute: AnalyticsRoute,
   ApiKeysRoute: ApiKeysRoute,
+  AskRoute: AskRoute,
   BillingRoute: BillingRoute,
   CookiesRoute: CookiesRoute,
   DashboardRoute: DashboardRoute,
   DashboardsRoute: DashboardsRouteWithChildren,
   DatasetsRoute: DatasetsRouteWithChildren,
+  DevelopersRoute: DevelopersRoute,
   EmbedRoute: EmbedRoute,
+  EmbeddedRoute: EmbeddedRoute,
+  InsightsRoute: InsightsRoute,
   LoginRoute: LoginRouteWithChildren,
+  MetricsRoute: MetricsRoute,
+  MfaSetupRoute: MfaSetupRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
+  PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
@@ -1133,22 +1600,38 @@ const rootRouteChildren: RootRouteChildren = {
   RequestAccessRoute: RequestAccessRoute,
   SecurityRoute: SecurityRoute,
   SettingsRoute: SettingsRoute,
+  ShareRoute: ShareRoute,
   TermsRoute: TermsRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
+  AdminAcceptInviteRoute: AdminAcceptInviteRoute,
   AdminAccessLogsRoute: AdminAccessLogsRoute,
   AdminAccessRequestsRoute: AdminAccessRequestsRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminComplianceRoute: AdminComplianceRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminEmailTemplatesRoute: AdminEmailTemplatesRoute,
   AdminEntitlementsRoute: AdminEntitlementsRoute,
+  AdminFeatureFlagsRoute: AdminFeatureFlagsRoute,
+  AdminForgotPasswordRoute: AdminForgotPasswordRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminMasterDataRoute: AdminMasterDataRoute,
+  AdminMfaSetupRoute: AdminMfaSetupRoute,
   AdminMonitoringRoute: AdminMonitoringRoute,
   AdminPlansRoute: AdminPlansRoute,
+  AdminResetPasswordRoute: AdminResetPasswordRoute,
   AdminRolesRoute: AdminRolesRoute,
+  AdminSecurityRoute: AdminSecurityRoute,
+  AdminSecurityAlertsRoute: AdminSecurityAlertsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminSupportRoute: AdminSupportRoute,
+  AdminTenantDeletionsRoute: AdminTenantDeletionsRoute,
   AdminTenantsRoute: AdminTenantsRouteWithChildren,
   InviteAcceptRoute: InviteAcceptRoute,
+  SettingsMembersRoute: SettingsMembersRoute,
+  SettingsRolesRoute: SettingsRolesRoute,
+  SettingsWorkspaceRoute: SettingsWorkspaceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

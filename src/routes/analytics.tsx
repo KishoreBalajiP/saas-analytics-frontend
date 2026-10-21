@@ -10,10 +10,12 @@ import { QueryHistory } from "@/features/analytics/components/QueryHistory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as analyticsApi from "@/features/analytics/api";
 import * as connectorsApi from "@/features/datasets/api";
+import * as metricsApi from "@/features/metrics/api";
 import type { AnalyticsQueryParams, AnalyticsResult } from "@/lib/api/types";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
 import { ErrorState } from "@/components/common/states";
+import { ApiError } from "@/lib/api/client";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({
@@ -48,7 +50,19 @@ function AnalyticsContent() {
   const [error, setError] = useState<unknown>(null);
   const [activeTab, setActiveTab] = useState("query");
 
+  // ai-catalogue: approved metrics for the metric picker.
+  const metricsQuery = useQuery({
+    queryKey: ["metrics", "approved"],
+    queryFn: () => metricsApi.list({ status: "approved", limit: 100 }),
+    enabled: hasPermission(permissions, Permissions.METRICS_VIEW),
+    retry: false,
+  });
   const connectors = (connectorsQuery.data?.data ?? []) as import("@/lib/api/types").Connector[];
+  // Field errors of a rejected query (400 INVALID_QUERY) are shown next to the builder.
+  const serverErrors =
+    error instanceof ApiError && error.statusCode === 400 ? (error.errors ?? undefined) : undefined;
+  const timezone =
+    typeof meta?.["timezone"] === "string" ? (meta["timezone"] as string) : undefined;
 
   if (!canView) {
     return <ErrorState error={{ statusCode: 403 }} resource="Analytics" />;
@@ -115,6 +129,9 @@ function AnalyticsContent() {
                 onRun={handleRun}
                 loading={loading}
                 initialParams={lastParams}
+                serverErrors={serverErrors}
+                timezone={timezone}
+                catalogueMetrics={metricsQuery.data?.data}
               />
             </div>
           </TabsContent>

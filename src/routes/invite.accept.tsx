@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AppLink } from "@/components/common/AppLink";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AppLink } from "@/components/common/AppLink";
 import { Brand } from "@/components/common/Brand";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +33,8 @@ function AcceptInvitationPage() {
     mutationFn: () => authApi.acceptInvitation(token, name.trim(), password),
     onSuccess: () => {
       toast.success("Invitation accepted. Sign in to continue.");
-      void navigate({ to: "/login" });
+      const workspace = invitation.data?.tenant.slug;
+      void navigate({ to: "/login", search: workspace ? { workspace } : {} });
     },
   });
   const mismatch = confirm.length > 0 && confirm !== password;
@@ -115,7 +116,12 @@ function AcceptInvitationPage() {
               </form>
             )}
             <Button className="mt-4 w-full" variant="ghost" asChild>
-              <AppLink to="/login">Go to sign in</AppLink>
+              <AppLink
+                to="/login"
+                {...(invitation.data ? { search: { workspace: invitation.data.tenant.slug } } : {})}
+              >
+                Go to sign in
+              </AppLink>
             </Button>
           </CardContent>
         </Card>

@@ -24,6 +24,7 @@ import * as connectorsApi from "@/features/datasets/api";
 import * as dashboardsApi from "@/features/dashboards/api";
 import { useTenantSession } from "@/lib/auth/session";
 import type { Connector, PreviewResult } from "@/lib/api/types";
+import { errorMessage } from "@/lib/api/quota";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Workspace setup - Analivo" }] }),
@@ -326,8 +327,8 @@ function OnboardingContent() {
               )}
               {createConnectorMutation.isError ? (
                 <p role="alert" className="text-sm text-destructive">
-                  {createConnectorMutation.error.message} Retry; existing sources with the same name
-                  are checked first.
+                  {errorMessage(createConnectorMutation.error, "Could not create the data source.")}{" "}
+                  Retry; existing sources with the same name are checked first.
                 </p>
               ) : null}
               {selectedConnector ? (
@@ -402,7 +403,8 @@ function OnboardingContent() {
                   ) : null}
                   {syncMutation.isError ? (
                     <p role="alert" className="text-sm text-destructive">
-                      {syncMutation.error.message} Check the file and retry.
+                      {errorMessage(syncMutation.error, "The import failed.")} Check the file and
+                      retry.
                     </p>
                   ) : null}
                   {syncInProgress ? (
@@ -489,8 +491,8 @@ function OnboardingContent() {
               )}
               {createDashboardMutation.isError ? (
                 <p role="alert" className="text-sm text-destructive">
-                  {createDashboardMutation.error.message} Retry; existing dashboards are checked
-                  first.
+                  {errorMessage(createDashboardMutation.error, "Could not create the dashboard.")}{" "}
+                  Retry; existing dashboards are checked first.
                 </p>
               ) : null}
             </CardContent>
@@ -544,7 +546,8 @@ function OnboardingContent() {
               </form>
               {invitationMutation.isError ? (
                 <p role="alert" className="text-sm text-destructive">
-                  {invitationMutation.error.message} Correct the address or retry.
+                  {errorMessage(invitationMutation.error, "Could not send the invitation.")} Correct
+                  the address or retry.
                 </p>
               ) : null}
               <Button asChild variant="ghost" className="px-0">

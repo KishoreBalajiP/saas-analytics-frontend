@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AdminPortal } from "@/components/layout/AdminPortal";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { AccessLogList } from "@/features/admin/components/AdminViews";
+import { AccessLogList, LoginAttemptList } from "@/features/admin/components/AuditViews";
 
 export const Route = createFileRoute("/admin/access-logs")({
   head: () => ({ meta: [{ title: "Access Logs — Admin Portal" }] }),
@@ -13,7 +13,10 @@ export const Route = createFileRoute("/admin/access-logs")({
         description="Monitor API and web traffic patterns."
         crumbs={[{ label: "Admin", to: "/admin/dashboard" }, { label: "Access Logs" }]}
       />
-      <AccessLogList />
+      <div className="space-y-6">
+        <AccessLogList />
+        <LoginAttemptList />
+      </div>
     </AdminPortal>
   ),
 });

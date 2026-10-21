@@ -1,5 +1,5 @@
 import { request, requestPaged, type Query } from "@/lib/api/client";
-import type { AnalyticsQueryParams, Report } from "@/lib/api/types";
+import type { AnalyticsQueryParams, Report, ReportDownload } from "@/lib/api/types";
 
 export function list(query: Query = {}) {
   return requestPaged<Report>("/reports", { query });
@@ -21,9 +21,12 @@ export interface ReportInput {
   schedule?: {
     enabled?: boolean;
     cron?: string;
-    timezone?: string;
+    /** IANA zone; null/empty = the workspace time zone. */
+    timezone?: string | null;
     format?: "json" | "csv" | "xlsx";
     recipients?: Array<{ type?: "user" | "external"; value: string }>;
+    // delivery: webhook / Slack / Teams destination ids.
+    destinationIds?: string[];
   };
   status?: string;
 }
@@ -40,7 +43,7 @@ export function run(
   id: string,
   body: { format?: "json" | "csv" | "xlsx"; filters?: Record<string, unknown> } = {},
 ) {
-  return request<{ accepted?: boolean; runId?: string; status?: string }>(`/reports/${id}/run`, {
+  return request<{ accepted?: boolean; queued?: boolean; runId?: string }>(`/reports/${id}/run`, {
     method: "POST",
     body,
   });
@@ -50,8 +53,12 @@ export function remove(id: string) {
   return request<unknown>(`/reports/${id}`, { method: "DELETE" });
 }
 
+/**
+ * Short-lived signed link to a run's artefact (default: the latest ready
+ * run), with its file name, format, row count and `truncated` flag.
+ */
 export function download(id: string, runId?: string) {
   const query: Query = {};
   if (runId) query["runId"] = runId;
-  return request<{ url: string; expiresAt?: string }>(`/reports/${id}/download`, { query });
+  return request<ReportDownload>(`/reports/${id}/download`, { query });
 }

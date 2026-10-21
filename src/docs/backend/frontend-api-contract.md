@@ -69,7 +69,7 @@
 
 ## 1. Authentication & Sessions
 
-All endpoints mounted under `/auth`. All public credential endpoints are `strictLimiter`-throttled.
+All endpoints mounted under `/auth`. Every public endpoint has its own rate-limit bucket (login per IP + account with a per-IP ceiling, refresh separately and looser, password, verification and registration each separately). A limit answers 429 `RATE_LIMITED` with a `Retry-After` header and `meta.retryAfterSeconds`.
 
 ### `POST /auth/login`
 
@@ -93,8 +93,7 @@ All endpoints mounted under `/auth`. All public credential endpoints are `strict
   "data": {
     "accessToken": "eyJ...",
     "expiresIn": 900,
-    "refreshToken": "rt_...",
-    "sessionId": "ses_01H...",
+    "sessionExpiresAt": "2026-11-19T10:00:00.000Z",
     "actor": {
       "id": "66a...",
       "email": "user@example.com",
@@ -105,21 +104,21 @@ All endpoints mounted under `/auth`. All public credential endpoints are `strict
 }
 ```
 
-- **Side effect:** `Set-Cookie: saas_session=<refreshToken>; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`
+- **Side effect:** `Set-Cookie: saas_session=<refreshToken>; Path=/api/v1/auth; HttpOnly; Secure; SameSite=<AUTH_COOKIE_SAMESITE>; Max-Age=<seconds until sessionExpiresAt>` (plus `Domain=<AUTH_COOKIE_DOMAIN>` when configured). The refresh token and the session id are never in the body.
 - **Errors:** 401 invalid credentials (generic), 403 tenant not active, 422 validation failed, 429 too many attempts, 423 account locked
 - **Permission:** none (public)
 - **Frontend notes:** store `accessToken` in memory; backend sets refresh as HttpOnly cookie. Use the cookie for `/auth/refresh` automatically.
 
 ### `POST /auth/refresh`
 
-- **Authentication:** refresh token via `Cookie: saas_session=…` OR `body.refreshToken`
-- **Response 200:** identical shape to `/auth/login` (rotates refresh token).
-- **Errors:** 401 invalid/expired refresh (family-revoked if replayed)
+- **Authentication:** the HttpOnly `saas_session` cookie only (a body token is ignored).
+- **Response 200:** identical shape to `/auth/login` (rotates the cookie). A login lives at most `AUTH_SESSION_ABSOLUTE_TTL` (default 30 days) from the original sign-in, however often it is refreshed.
+- **Errors:** 401 `SESSION_COOKIE_MISSING` (no cookie reached the server, e.g. blocked third-party cookies), 401 `SESSION_EXPIRED` (unknown, expired, past the absolute lifetime, or issued by the admin portal), 401 `SESSION_REVOKED` (replay of a rotated token revokes every session of the user; also account or tenant no longer active). Two tabs must never refresh at once: the SPA coordinates refreshes across tabs (Web Locks + BroadcastChannel). Server-side safety net: a token rotated less than `AUTH_REFRESH_REUSE_GRACE_MS` (default 10 s) ago whose direct successor is still live is a lagging duplicate, not a replay; it gets 200 with an access token for the successor and NO `Set-Cookie` (the browser already holds the successor's cookie). Later reuse, or reuse two rotations back, is a replay.
 
 ### `POST /auth/logout`
 
-- **Authentication:** none required (cookie or body token)
-- **Response 200:** `{ "success": true }`; clears `saas_session` cookie.
+- **Authentication:** the `saas_session` cookie and/or `Authorization: Bearer <accessToken>`; either one is enough. A cookie that was already rotated still ends the live session it was rotated into.
+- **Response 200 `data`:** `{ ok: true, revoked: boolean }` (`revoked` is false when no live session was found); clears the cookie.
 - **Frontend notes:** call on every logout button; discards access token client-side.
 
 ### `GET /auth/me`
@@ -164,22 +163,36 @@ All endpoints mounted under `/admin-auth`. Same shape as tenant auth, except the
 ### `POST /admin-auth/login`
 
 - **Request:** same as `/auth/login` (no `X-Tenant-Id`).
-- **Note:** for `super_admin` admins, the MFA step may be required; the response indicates `mfaRequired: true` with `{ mfaToken }` to retry with `mfaToken`.
+- **Note:** when the admin has MFA on, a missing code answers `401 MFA_REQUIRED` (`mfaRequired: true`); retry with `mfaToken` or `recoveryCode`. See "Admin authentication completeness" below.
 
 ### `POST /admin-auth/refresh` / `POST /admin-auth/logout` / `GET /admin-auth/me`
 
-- Identical to tenant auth, returns admin profile.
+- Identical to tenant auth, returns admin profile. The admin portal uses its own cookie, `saas_admin_session` (`AUTH_ADMIN_COOKIE_NAME`), scoped to `Path=/api/v1/admin-auth`, so signing in to one portal never replaces the other's session; `/admin-auth/refresh` refuses tenant sessions and vice versa. MFA enrol/verify/disable are rate-limited per admin.
 
 ### `POST /admin-auth/mfa/enroll`
 
 - **Authentication:** `adminAuth` (Bearer admin token)
-- **Response 200:** `{ secret: "BASE32…", otpauthUrl: "otpauth://totp/…", qrCodeDataUrl: "data:image/png;base64,…" }`
+- **Response 200:** `{ secret: "BASE32…", otpauthUrl: "otpauth://totp/…" }` (no QR image; the client renders the key/URL)
 
 ### `POST /admin-auth/mfa/verify`
 
 - **Authentication:** `adminAuth`
 - **Request:** `{ "code": "123456" }`
-- **Response 200:** `{ "verified": true }`
+- **Response 200:** `{ "enabled": true, "recoveryCodes": ["XXXX-XXXX-XXXX-XXXX", …], "recoveryCodesRemaining": 10 }`
+
+### Admin authentication completeness (adminauth, roadmap 2.2)
+
+- **MFA policy.** Admins whose type (or platform role name) is listed in `ADMIN_MFA_REQUIRED_TYPES` (default `super,platform`), and any admin whose MFA another super admin reset, must use MFA. Such an admin signing in without MFA gets `200` with `mfaEnrollmentRequired: true`: the session can only call `POST /admin-auth/mfa/enroll`, `POST /admin-auth/mfa/verify`, `GET /admin-auth/me` and `POST /admin-auth/logout`. Every other admin route answers `403 MFA_ENROLLMENT_REQUIRED`. `/admin-auth/refresh` keeps the flag until enrolment completes.
+- **Login second factor.** With MFA on, `POST /admin-auth/login` takes `mfaToken` (6 digits) **or** `recoveryCode` (`XXXX-XXXX-XXXX-XXXX`, case/dashes ignored, single use). Missing both: `401 MFA_REQUIRED`. A successful recovery-code login returns `recoveryCodesRemaining`.
+- **`GET /admin-auth/me`** adds `mfaRequired`, `mfaEnrollmentRequired`, `recoveryCodesRemaining`, `recoveryCodesGeneratedAt` and `stepUpExpiresAt` (never the codes).
+- **`POST /admin-auth/mfa/enroll`** → `{ secret, otpauthUrl }` (returned once, `Cache-Control: no-store`). `409` when MFA is already on.
+- **`POST /admin-auth/mfa/verify`** `{ code }` → `{ enabled: true, recoveryCodes: string[10], recoveryCodesRemaining }`. The codes are shown exactly once; only SHA-256 digests are stored. Lifts an enrolment-only restriction for the whole login.
+- **`POST /admin-auth/mfa/disable`** `{ password, code | recoveryCode }` → `{ enabled: false, enrollmentRequired }`. `400` without a code, `403 STEP_UP_FAILED` for a wrong password/code. When the policy still requires MFA the session becomes enrolment-only.
+- **`POST /admin-auth/step-up`** `{ password, code | recoveryCode }` → `{ stepUpExpiresAt }`. Opens a step-up window (`ADMIN_STEP_UP_TTL_MS`, default 5 min) on **this session only**. Failures: `403 STEP_UP_FAILED` (never 401), counted toward the lockout; reaching it revokes every session of the admin.
+- **Sensitive routes** answer `403 STEP_UP_REQUIRED` without a fresh step-up; the client re-authenticates and retries with a new idempotency key: `POST /admin-auth/mfa/recovery-codes` (→ `{ recoveryCodes, recoveryCodesRemaining, generatedAt }`, old codes void), `POST /admin/admins` with `adminType: "super"`, `PATCH /admin/admins/:id` with `adminType: "super"`, `POST /admin/admins/:id/roles` granting the role named `super`, `POST /admin/admins/:id/mfa/reset`, `POST /admin/admins/:id/password/reset`, `GET /tenants/:id/settings?includeSecrets=true`.
+- **Password recovery.** `POST /admin-auth/password/forgot` `{ email }` (always `{ ok: true }`) emails `<CLIENT_URL>/admin/reset-password?token=…` (lifetime `PASSWORD_RESET_TTL_MS`, default 1 h); the page posts `POST /admin-auth/password/reset` `{ token, newPassword }`.
+- **Invitations.** `POST /admin/admins` `{ email, name?, adminType?, tenantScope? }` (`iam.admins.create`; no password) creates a `pending` admin that cannot sign in and emails `<CLIENT_URL>/admin/accept-invite?token=…` (lifetime `ADMIN_INVITATION_TTL_MS`, default 72 h). Response: the admin plus `invitation` and `delivered`. `GET /admin/admins/invitations?status=` (`iam.admins.view`), `POST /admin/admins/:id/invitation/resend` (`iam.admins.create`; `429` within `ADMIN_INVITATION_RESEND_COOLDOWN_MS`, persisted in MongoDB), `POST /admin/admins/:id/invitation/revoke` (`iam.admins.delete`; removes the pending admin). Public: `POST /admin-auth/invitations/preview` `{ token }` → `{ email, name, adminType, expiresAt, mfaRequired }`; `POST /admin-auth/invitations/accept` `{ token, password, name? }` → login payload + admin refresh cookie (`mfaEnrollmentRequired: true` for privileged roles). Invalid, expired, used or revoked tokens all answer the same `400`.
+- **Admin-assisted resets** (`iam.admins.configure`, active super actor, never oneself, step-up, `{ reason }` required): `POST /admin/admins/:id/mfa/reset` → `{ admin, sessionsRevoked, mfaEnrollmentRequired: true }` (target must enrol at next sign-in); `POST /admin/admins/:id/password/reset` → `{ admin, sessionsRevoked, delivered, resetLinkExpiresAt }` (old password void at once; reset link emailed). `403` for oneself or a non-super actor, `409` for a pending admin.
 
 ---
 
@@ -255,19 +268,23 @@ All endpoints mounted under `/tenants`. All require **admin Bearer token** + `ia
 
 Mounted under `/admin/admins`. Requires **admin Bearer** + `iam.admins.<action>`.
 
-| Method | Path                              | Permission                                                    |
-| ------ | --------------------------------- | ------------------------------------------------------------- |
-| GET    | `/admin/admins`                   | `view`                                                        |
-| POST   | `/admin/admins`                   | `create` — body `{ email, password, name, adminType, scope }` |
-| GET    | `/admin/admins/:id`               | `view`                                                        |
-| PATCH  | `/admin/admins/:id`               | `update`                                                      |
-| POST   | `/admin/admins/:id/suspend`       | `suspend` — body `{ reason }`                                 |
-| POST   | `/admin/admins/:id/restore`       | `restore`                                                     |
-| POST   | `/admin/admins/:id/roles`         | `assign` — body `{ roleId, expiresAt? }`                      |
-| DELETE | `/admin/admins/:id/roles/:roleId` | `assign`                                                      |
-| GET    | `/admin/admins/:id/audit`         | `view`                                                        |
+| Method | Path                              | Permission                                                           |
+| ------ | --------------------------------- | -------------------------------------------------------------------- |
+| GET    | `/admin/admins`                   | `view`                                                               |
+| POST   | `/admin/admins`                   | `create` — body `{ email, password, name, adminType, tenantScope? }` |
+| GET    | `/admin/admins/:id`               | `view`                                                               |
+| PATCH  | `/admin/admins/:id`               | `update`                                                             |
+| POST   | `/admin/admins/:id/suspend`       | `suspend` — body `{ reason }`                                        |
+| POST   | `/admin/admins/:id/restore`       | `restore`                                                            |
+| POST   | `/admin/admins/:id/roles`         | `assign` — body `{ roleId, expiresAt? }`                             |
+| DELETE | `/admin/admins/:id/roles/:roleId` | `assign` — `?tenantId=` revokes a tenant-scoped grant                |
+| GET    | `/admin/admins/:id/audit`         | `view`                                                               |
 
-`adminType`: `super_admin | platform_admin | support_admin | readonly_admin`.
+`adminType`: `super | platform | support | auditor` (the privilege ceiling). Built-in platform
+roles: `super_admin`, `platform_admin`, `support_operator`, `auditor`. `GET /admin-auth/me`
+returns `roles`, `permissions` and `scope: { type: "platform" | "tenant", tenantId }`; a
+tenant-scoped admin only reaches its own tenant (403 `ADMIN_SCOPE_DENIED` elsewhere).
+`PATCH /admin/admins/:id` with `{ tenantScope: null }` clears an admin's tenant scope.
 
 ---
 
@@ -417,15 +434,23 @@ Mounted under `/analytics`. All routes Bearer + `analytics.<action>`.
 
 - **Auth:** Bearer + `analytics.view`
 - **Query (all optional):**
-  - `connectorIds` — comma-separated ObjectIds or array
+  - `connectorIds` — comma-separated dataset ids in ONE parameter (a repeated parameter is a 400 field error)
   - `filters` — JSON string array `[{ field, op, value }]`
   - `filtersOp` — `'and' | 'or'` (default `'and'`)
-  - `dateRange` — JSON `{ from: ISO, to: ISO }`
+  - `dateRange` — JSON `{ field, preset? , from?, to? }`. `field` (required) is the date column (`ingestedAt` for ingestion time); `preset` ∈ `today, yesterday, last_7_days, last_30_days, this_month, last_month, this_quarter, last_quarter, this_year, last_year, custom` and resolves in the workspace time zone at run time; `custom`/no preset needs `from`/`to` (`YYYY-MM-DD` or ISO date-time)
   - `metrics` — JSON array `[{ field, op, alias }]` where op ∈ `count, sum, avg, min, max`
-  - `groupBy` — JSON array of field names (empty/missing = raw rows)
-  - `orderBy` — JSON `[{ field, dir }]`
+  - `groupBy` — JSON array of field names or `{ field, bucket? }` (bucket ∈ `day, week, month, quarter, year`); metrics without groupBy return one aggregate row; neither = raw rows
+  - `orderBy` — JSON `[{ field, direction }]` (`dir` accepted as an alias)
   - `page`, `limit` (≤ 200, default 50)
-- **Response 200 `data`:** `rows: Array<object>`, `meta` carries `total, page, pages, limit, columns, cached, executedAt, groupMode ('grouped' | 'raw'), queryId, cacheKey`.
+- **Response 200 `data`:** `rows: Array<object>`, `meta` carries `total, page, pages, limit, columns, cached, executedAt, groupMode, timezone, window, queryId, cacheKey`.
+- **Strict contract:** unknown parameters or any invalid part are `400 INVALID_QUERY` with field errors (`errors: [{ field: 'filters[0].op', message }]`), never ignored. `408 QUERY_TIMEOUT` when the query exceeds the time limit; `429 QUERY_CONCURRENCY_LIMIT` when the workspace already has too many queries running. Full rules: `backend/src/services/analytics.engine.js`.
+
+### `GET /workspace/settings` and `PATCH /workspace/settings`
+
+- **Auth:** Bearer + `settings.view` (GET) / `settings.update` (PATCH)
+- **Request (PATCH):** `{ "timezone": "Asia/Kolkata" }` (IANA name; unknown fields are 400)
+- **Response 200 `data`:** `{ timezone }` (default `UTC`)
+- **Effect:** analytics date presets and bucketing resolve in this zone; report and alert schedules without their own `schedule.timezone` run in it (their next run is re-projected on change).
 
 ### `GET /analytics/queries`
 
@@ -441,8 +466,9 @@ Mounted under `/analytics`. All routes Bearer + `analytics.<action>`.
 ### `POST /analytics/export`
 
 - **Auth:** Bearer + `analytics.export`
-- **Body:** same params as `GET /analytics` minus pagination, plus `format: 'json'|'csv'|'xlsx'`
-- **Response 202:** `{ accepted: true, exportId, status: 'queued' }` (poll via `GET /audit-logs/export/:exportId` or connector status)
+- **Body:** the `GET /analytics` query as JSON plus `format: 'json'|'csv'|'xlsx'`. `pagination` is refused (an export holds the whole result); `connectorIds` must be datasets of the workspace.
+- **Response 202:** `{ exportId, accepted: true, status: 'pending', format }`. Poll `GET /analytics/exports/:id` (`status: pending|running|ready|failed`, `rowCount`, `truncated`, `fileName`, `error`) and then `GET /analytics/exports/:id/download` → `{ url, expiresAt, fileName, ... }` (409 `EXPORT_NOT_READY` before). Only the requesting user sees an export.
+- **Signed URLs:** `url` is absolute (S3) or relative to the API origin (`/api/v1/files/<token>`); open it directly (no bearer token), it expires after ~5 minutes.
 
 ---
 
@@ -533,7 +559,7 @@ Mounted under `/reports`. Bearer + `reports.<action>`.
 | PATCH  | `/reports/:id`          | update                                                         |
 | POST   | `/reports/:id/run`      | export — `{ format?, filters? }` → 202                         |
 | DELETE | `/reports/:id`          | delete                                                         |
-| GET    | `/reports/:id/download` | export — `?runId=` → `{ url, expiresAt }` (signed storage URL) |
+| GET    | `/reports/:id/download` | export — `?runId=` (default latest ready run) → `{ url, expiresAt, runId, fileName, contentType, format, rowCount, truncated, rowLimit }` (short-lived signed URL; the artefact holds the whole result unless `truncated`) |
 
 ### Report model
 
@@ -576,7 +602,7 @@ Mounted under `/alerts`. Bearer + `alerts.<action>`.
 | GET    | `/alerts/:id`          | view                                                  |
 | PATCH  | `/alerts/:id`          | update                                                |
 | DELETE | `/alerts/:id`          | delete                                                |
-| POST   | `/alerts/:id/evaluate` | evaluate — manual; `{ triggered, event?, disabled? }` |
+| POST   | `/alerts/:id/evaluate` | evaluate — manual; `{ triggered, suppressed, outcome, value, noData, event, groupsEvaluated?, groupsMatched? }`. `metric` must be an output of the query (metric alias, or `count` without metrics; else 400 `ALERT_METRIC_INVALID`); `groupEvaluation: total \| any \| all` |
 | GET    | `/alerts/:id/events`   | view — paged                                          |
 
 ### AlertRule model
@@ -690,31 +716,50 @@ Mounted under `/monitoring`. Admin Bearer + `monitoring.view`.
 ## 15. Audit Logs (Admin)
 
 Mounted under `/audit-logs`. Admin Bearer + `audit_logs.<view|export>`.
+An admin whose token carries a tenant scope (support admin) only ever sees
+that tenant's entries; platform admins may filter by any tenant.
 
-| Method | Path                           | Body / Query                                                                       | Permission                            |
-| ------ | ------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------- |
-| GET    | `/audit-logs`                  | `actor, module, action, resourceType, resourceId, from, to, tenantId, page, limit` | view                                  |
-| GET    | `/audit-logs/modules/:module`  | `page, limit`                                                                      | view                                  |
-| GET    | `/audit-logs/:id`              | —                                                                                  | view                                  |
-| POST   | `/audit-logs/export`           | `{ filters, format: 'json'                                                         | 'csv' }`→ 202`{ exportId }`           | export |
-| GET    | `/audit-logs/export/:exportId` | —                                                                                  | view → `{ status, url?, expiresAt? }` |
+| Method | Path                           | Body / Query               | Permission                                                            |
+| ------ | ------------------------------ | -------------------------- | --------------------------------------------------------------------- |
+| GET    | `/audit-logs`                  | `category (change          | security), severity (info                                             | notice | warning | critical), module, action, actorId, actorType, result, resourceType, resourceId, dateFrom, dateTo, search, tenantId, page, limit` | view |
+| GET    | `/audit-logs/modules/:module`  | `page, limit`              | view                                                                  |
+| GET    | `/audit-logs/:id`              | —                          | view (404 outside a scoped admin's tenant)                            |
+| POST   | `/audit-logs/export`           | `{ filters, format: 'json' | 'csv' }`→ 202`{ exportId }`                                           | export |
+| GET    | `/audit-logs/export/:exportId` | —                          | view → `{ status, recordCount, downloadUrl?, fileName?, expiresAt? }` |
+
+Security event action names (category `security`) are defined in one place:
+backend `src/constants/securityEvents.js` (login success/failure, lockout,
+password reset, MFA, session revocation and refresh-token replay, permission
+and role grants, admin privilege changes, support impersonation, API key and
+embed token lifecycle, denied requests `request.denied`).
 
 ### AuditLog model
 
 ```json
 {
   "_id": "66a...",
-  "actor": { "type": "user|admin|system", "id": "..." },
+  "category": "change|security",
+  "severity": "info|notice|warning|critical|null",
+  "actorType": "user|admin|service|system",
+  "actorId": "...",
+  "actorDisplay": "ops@example.com",
+  "tenantId": "66a... | null",
   "module": "connectors",
-  "action": "connector.create",
-  "resource": { "type": "connector", "id": "66a..." },
-  "tenantId": "<slug>",
-  "before": {/* sanitized snapshot */},
-  "after": {/* sanitized snapshot */},
+  "action": "update",
+  "resourceType": "connector",
+  "resourceId": "66a...",
+  "before": {/* allow-listed fields that changed; dates ISO, ids hex */},
+  "after": {/* allow-listed fields that changed */},
+  "metadata": {/* changedFields, bulk filter/counts, security event details */},
   "reason": "...",
+  "result": "success|failure",
+  "errorCode": "...",
   "ip": "...",
   "userAgent": "...",
-  "createdAt": "..."
+  "requestId": "...",
+  "occurredAt": "2026-10-20T10:00:00.000Z",
+  "seq": 42,
+  "hash": "<64 hex: tamper-evidence chain>"
 }
 ```
 
@@ -724,13 +769,15 @@ Mounted under `/audit-logs`. Admin Bearer + `audit_logs.<view|export>`.
 
 Mounted under `/access-logs`. Admin Bearer + `access_logs.<view|export>`.
 
-| Method | Path                            | Permission                                                            |
-| ------ | ------------------------------- | --------------------------------------------------------------------- |
-| GET    | `/access-logs`                  | view — `actor, method, path, status, tenantId, from, to, page, limit` |
-| GET    | `/access-logs/top-paths`        | view — aggregated (capped 100)                                        |
-| GET    | `/access-logs/top-errors`       | view — aggregated                                                     |
-| POST   | `/access-logs/export`           | export                                                                |
-| GET    | `/access-logs/export/:exportId` | view (poll status)                                                    |
+| Method | Path                            | Permission                                                                                                           |
+| ------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/access-logs`                  | view — `actorId, actorType, method, path, statusCode, event, tenantId, dateFrom, dateTo, search, page, limit`        |
+| GET    | `/access-logs/top-paths`        | view — aggregated (capped 100)                                                                                       |
+| GET    | `/access-logs/top-errors`       | view — aggregated                                                                                                    |
+| POST   | `/access-logs/export`           | export — `{ filters, format }`; filters as for the list (method/path/statusCode/event are honoured); rows carry `id` |
+| GET    | `/access-logs/export/:exportId` | view (poll status)                                                                                                   |
+
+`GET /access-logs/login-attempts` (view): every sign-in attempt (`LoginAttempt`). Filters `email, ip, success (true/false), reason, actorType (user/admin), actorId, tenantId, dateFrom, dateTo, page, limit`; rows `{ _id, actorId, actorType, email, tenantId, ip, userAgent, success, reason, occurredAt }`. Tenant-scoped admins only see their tenant. Shown under "Sign-in attempts" on `/admin/access-logs`.
 
 ---
 
@@ -758,16 +805,44 @@ Mounted under `/compliance`.
 
 ## 18. Support (Admin)
 
-Mounted under `/support`. Admin Bearer + `support.configure`.
+Mounted under `/support`. Admin Bearer. Every privileged action needs a `reason` (3..500 chars) and is written to the workspace's audit trail. Tenant-scoped admins only reach their own tenant (403 otherwise).
 
-| Method | Path                               | Body                                                                                       |
-| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| POST   | `/support/impersonate`             | `{ userId, reason }` — returns short-lived user-scoped bearer token; daily budget enforced |
-| POST   | `/support/impersonate/stop`        | `{ sessionId }`                                                                            |
-| POST   | `/support/account/recover`         | `{ email, type: 'reset'                                                                    | 'unlock' }` |
-| POST   | `/support/account/revoke-sessions` | `{ userId }`                                                                               |
-| GET    | `/support/tenants/:id/lookups`     | — (tenant overview + statistics)                                                           |
-| POST   | `/support/notifications/broadcast` | `{ title, body, audience: { tenantId?, roles? } }`                                         |
+| Method | Path                                 | Permission          | Body / notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------ | ------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/support/tenants/:id/diagnostics`   | `support.view`      | Sanitised diagnostics: tenant status/plan, usage vs limits, user counts, connector states with masked last errors, recent sync runs, 24 h request status counts and top failing paths, broken items, support access state. No customer rows, configs, emails or names.                                                                                                                                                                                                                                                                                                                                  |
+| POST   | `/support/impersonate`               | `support.configure` | `{ targetUserId, reason, ticket? }` — needs an active workspace consent or the caller's own approved break-glass grant (403 `SUPPORT_CONSENT_REQUIRED`); 409 `TENANT_NOT_ACTIVE`; 403 `SUPPORT_TARGET_PROTECTED` for platform staff; 429 `SUPPORT_IMPERSONATION_CAP_EXCEEDED` (atomic per-admin daily cap). Returns `{ token, expiresAt, expiresIn, sessionId, readOnly: true, breakGlass, grantId, user }`. The token is a READ-ONLY user token: every POST/PUT/PATCH/DELETE answers 403 `IMPERSONATION_READ_ONLY`; it ends with the token (at most 60 min, never past the grant) and never refreshes. |
+| POST   | `/support/impersonate/stop`          | `support.configure` | `{ sessionId, reason }` (only the operator who started it)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| GET    | `/support/impersonations`            | `support.view`      | `?tenantId&status=active                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | ended&mine=true&page&limit` |
+| GET    | `/support/access-grants`             | `support.view`      | `?tenantId&status=pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | active                      | denied | revoked&kind=consent | break_glass&page&limit` |
+| POST   | `/support/access-grants/break-glass` | `support.configure` | `{ tenantId, reason (>= 10 chars), ticket? }` → pending grant                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| POST   | `/support/access-grants/:id/approve` | `support.approve`   | `{ reason }` — an active, unscoped super admin other than the requester (403 `BREAK_GLASS_APPROVAL_DENIED`); 409 `SUPPORT_GRANT_NOT_ACTIVE` when already decided                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| POST   | `/support/access-grants/:id/deny`    | `support.approve`   | `{ reason }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| POST   | `/support/access-grants/:id/revoke`  | `support.configure` | `{ reason }` — ends the grant's open support sessions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| POST   | `/support/account/recover`           | `support.configure` | `{ userId, reason }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| POST   | `/support/account/revoke-sessions`   | `support.configure` | `{ userId, reason }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| GET    | `/support/tenants/:id/lookups`       | `support.configure` | — (tenant overview + statistics)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| POST   | `/support/notifications/broadcast`   | `support.configure` | `{ tenantId, title, body?, type?, reason }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+### 18a. Support access (workspace side)
+
+Mounted under `/workspace/support-access`. Tenant Bearer.
+
+| Method | Path                                          | Permission           | Body / notes                                                                                   |
+| ------ | --------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------- |
+| GET    | `/workspace/support-access`                   | `settings.view`      | `{ active, grants[], sessions[], maxHours }`                                                   |
+| GET    | `/workspace/support-access/activity`          | `settings.view`      | Paged `support.*` audit rows of the workspace                                                  |
+| POST   | `/workspace/support-access/grants`            | `settings.configure` | `{ durationHours (1..SUPPORT_CONSENT_MAX_HOURS), note? }` → 201; supersedes the active consent |
+| POST   | `/workspace/support-access/grants/:id/revoke` | `settings.configure` | `{ reason? }` — consent only; ends its open support sessions                                   |
+| POST   | `/workspace/support-access/sessions/:id/end`  | `settings.configure` | `{ reason? }`                                                                                  |
+
+### 18b. The support session itself
+
+Mounted under `/support-session`.
+
+| Method | Path                   | Auth                 | Notes                                                                                                                                                               |
+| ------ | ---------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/support-session`     | tenant Bearer        | `{ active: false }` for a normal session; for a support session `{ active, sessionId, readOnly, breakGlass, operator, user, startedAt, expiresAt, reason, ticket }` |
+| POST   | `/support-session/end` | support session only | Ends it (403 `IMPERSONATION_SESSION_REQUIRED` for a normal session). The only mutation a support session can make.                                                  |
 
 ---
 
@@ -911,8 +986,8 @@ interface User {
 ### Admin
 
 ```ts
-type AdminType = "super_admin" | "platform_admin" | "support_admin" | "readonly_admin";
-type AdminScope = { tenantId: string | "*"; allowed?: string[] };
+type AdminType = "super" | "platform" | "support" | "auditor";
+type AdminScope = { type: "platform" | "tenant"; tenantId: string | null };
 interface Admin {
   _id: string;
   email: string;
