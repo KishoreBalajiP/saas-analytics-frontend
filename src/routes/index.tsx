@@ -52,6 +52,7 @@ function PublicHome() {
   const sources = [
     { icon: Database, name: "CSV", implemented: true },
     { icon: Table2, name: "XLSX", implemented: true },
+    { icon: Database, name: "MongoDB", implemented: true },
     { icon: ShieldCheck, name: "Webhooks", implemented: true },
   ];
   const primaryPath = status === "authenticated" ? "/dashboard" : "/register";
@@ -137,7 +138,7 @@ function PublicHome() {
               title="From raw rows to confident action."
               description="Analivo gives teams a focused workspace for connecting data, exploring trends, and sharing the view that matters."
             />
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <Feature
                 icon={PanelsTopLeft}
                 title="Dashboards"
@@ -158,6 +159,11 @@ function PublicHome() {
                 title="Alerts"
                 text="Monitor thresholds and notify authorized workspace users."
               />
+              <Feature
+                icon={Sparkles}
+                title="AI-assisted questions"
+                text="Ask questions about permitted dataset schemas when an administrator enables AI processing."
+              />
             </div>
           </div>
         </section>
@@ -169,7 +175,7 @@ function PublicHome() {
           />
           <div className="mt-12 grid gap-6 md:grid-cols-4">
             {[
-              ["01", "Connect or import", "Bring in CSV, XLSX, or signed webhook data."],
+              ["01", "Connect or import", "Bring in CSV, XLSX, MongoDB, or signed webhook data."],
               ["02", "Explore", "Query rows with the analytics builder and inspect results."],
               ["03", "Compose", "Turn useful metrics into dashboards and reports."],
               [
@@ -199,16 +205,37 @@ function PublicHome() {
                 Work with the data you already have.
               </h2>
               <p className="mt-5 max-w-lg leading-7 text-slate-300">
-                Use the connectors currently supported by the platform, with ingestion status and
-                field mapping visible inside the tenant workspace.
+                Import files, pull from MongoDB, or receive signed webhook events. Ingestion status,
+                previews, and field mapping stay visible inside the tenant workspace.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {sources.map(({ icon: Icon, name }) => (
                 <div key={name} className="rounded-2xl border border-white/15 bg-white/10 p-5">
                   <Icon className="h-6 w-6 text-teal-300" aria-hidden="true" />
                   <p className="mt-6 font-semibold text-white">{name}</p>
                   <p className="mt-1 text-xs text-slate-300">Supported</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="border-y border-border/70 bg-card/50 px-5 py-20 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
+            <SectionIntro
+              eyebrow="Built for working teams"
+              title="A shared view for operators, analysts, and leaders."
+              description="Analivo is designed for teams that need a practical way to connect operational data, answer recurring questions, and keep decisions tied to measurable results."
+            />
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ["Operators", "Keep incoming data and recurring reports moving."],
+                ["Analysts", "Explore trends, metrics, and segments in one workspace."],
+                ["Leaders", "Share a current view of performance and next actions."],
+              ].map(([title, text]) => (
+                <div key={title} className="rounded-2xl border border-border bg-background p-5">
+                  <h3 className="font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
                 </div>
               ))}
             </div>

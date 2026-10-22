@@ -1,8 +1,8 @@
 # Cookie Policy
 
-## About this draft
+## Review status
 
-This is a draft template describing the cookies and browser storage the application uses today. It needs legal review before it is published as final.
+This informational document describes the cookies and browser storage the application uses today. It needs legal review before it is published as final.
 
 ## Strictly necessary
 

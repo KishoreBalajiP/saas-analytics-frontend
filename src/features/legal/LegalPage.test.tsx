@@ -23,11 +23,11 @@ describe("legal pages (onboarding)", () => {
     ["privacy", privacy, "Privacy Policy"],
     ["cookies", cookies, "Cookie Policy"],
   ] as const) {
-    it(`${name} renders from markdown with the draft banner`, () => {
+    it(`${name} renders from markdown with the review-status banner`, () => {
       render(<LegalPage source={source} />);
       expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
       const note = screen.getByRole("note");
-      expect(note).toHaveTextContent("Draft pending legal review");
+      expect(note).toHaveTextContent("Pending legal review");
       expect(note).toHaveTextContent(LEGAL_DOCUMENT_VERSION);
       expect(screen.getByText(/To be completed after legal review/)).toBeInTheDocument();
     });

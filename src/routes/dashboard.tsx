@@ -41,9 +41,8 @@ function DashboardContent() {
     queryKey: ["dashboards", "onboarding-status"],
     queryFn: () => dashboardsApi.list({ page: 1, limit: 100 }),
   });
-  const hasSyncedSource = (connectorsQuery.data?.data ?? []).some(
-    (connector) =>
-      (connector.type === "csv" || connector.type === "xlsx") && Boolean(connector.lastSyncedAt),
+  const hasSyncedSource = (connectorsQuery.data?.data ?? []).some((connector) =>
+    Boolean(connector.lastSyncedAt),
   );
   const hasDashboard = (dashboardsQuery.data?.data.length ?? 0) > 0;
   const setupComplete = hasSyncedSource && hasDashboard;
@@ -59,7 +58,7 @@ function DashboardContent() {
       to: "/dashboards",
       label: "Dashboards",
       icon: BarChart3,
-      desc: "Visualize metrics in real time",
+      desc: "Open and manage saved visualizations",
     },
     { to: "/reports", label: "Reports", icon: FileText, desc: "Schedule and export reports" },
     {
@@ -98,7 +97,7 @@ function DashboardContent() {
               {setupUnavailable
                 ? "We could not confirm setup progress from the server."
                 : setupComplete
-                  ? "Your first file source has synced and your workspace has a dashboard."
+                  ? "A data source has synced and your workspace has a dashboard."
                   : "Connect and sync a file source, then create your first dashboard. You can leave and resume later."}
             </p>
             <Button asChild variant="default" className="w-fit">

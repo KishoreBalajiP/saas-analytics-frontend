@@ -288,8 +288,8 @@ export function RegistrationPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="workspaceSlug">Workspace URL</Label>
-              <div className="flex items-center gap-2">
-                <span className="rounded-md border bg-muted px-2 py-1 text-sm text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 rounded-md border bg-muted px-2 py-2 text-sm text-muted-foreground">
                   analivo.app/
                 </span>
                 <Input
@@ -301,17 +301,17 @@ export function RegistrationPage() {
                   title="2 to 50 lowercase letters, numbers, or hyphens"
                   aria-describedby="workspaceSlug-help"
                   placeholder={workspaceName ? "your-workspace" : undefined}
-                  className="flex-1 rounded-xl border border-border py-4 px-3 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+                  className="min-w-0 flex-1"
                 />
-                <p id="workspaceSlug-help" className="text-xs text-muted-foreground">
-                  2 to 50 lowercase letters, numbers, and hyphens. Leave blank to derive it from the
-                  workspace name.
-                </p>
               </div>
+              <p id="workspaceSlug-help" className="text-xs leading-5 text-muted-foreground">
+                2 to 50 lowercase letters, numbers, and hyphens. Leave blank to derive it from the
+                workspace name.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <div className="flex items-center gap-3 w-full">
+              <div className="flex w-full items-center gap-2">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -320,12 +320,12 @@ export function RegistrationPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={8}
                   required
-                  className="flex-1 rounded-xl border border-border py-4 px-3 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0 transition-colors"
+                  className="min-w-0 flex-1"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((open) => !open)}
-                  className="rounded-xl border border-border py-3 px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0 transition-colors"
+                  className="h-10 w-10 shrink-0 rounded-xl border border-border p-0 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -350,7 +350,7 @@ export function RegistrationPage() {
                 <AppLink to="/privacy" className="text-primary hover:underline">
                   Privacy Policy
                 </AppLink>{" "}
-                (drafts pending legal review).
+              (pending legal review; these documents are not final legal terms).
               </Label>
             </div>
             <InlineFieldErrors error={mutation.error} />

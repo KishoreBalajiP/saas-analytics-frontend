@@ -41,16 +41,16 @@ function LoginLayout() {
               <span className="rounded-xl border border-white/10 bg-white/5 p-4">Act sooner</span>
             </div>
           </div>
-          <p className="text-xs text-slate-500">Trusted workspace access, built for teams.</p>
+          <p className="text-xs text-slate-500">Workspace analytics for teams.</p>
         </section>
-        <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10 sm:px-8">
+        <main className="flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-8 lg:py-10">
           <div className="mb-10 lg:hidden">
             <Brand />
           </div>
           <div className="w-full max-w-md">
             <Outlet />
           </div>
-          <div className="mt-10 w-full max-w-md">
+          <div className="mt-8 w-full max-w-md sm:mt-10">
             <PublicFooter />
           </div>
         </main>

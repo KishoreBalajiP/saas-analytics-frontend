@@ -1,8 +1,8 @@
 # Privacy Policy
 
-## About this draft
+## Review status
 
-This is a draft template. It lists the personal data the application processes today. The operator must complete the controller identity, contacts, legal bases and retention periods before publishing it as final.
+This informational document lists the personal data the application processes today. The operator must complete the controller identity, contacts, legal bases and retention periods before publishing it as final.
 
 ## Data the application processes
 

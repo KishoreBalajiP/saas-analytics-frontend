@@ -51,6 +51,8 @@ describe("public homepage", () => {
         .every((link) => link.getAttribute("href") === "/register"),
     ).toBe(true);
     expect(screen.queryByText(/restoring your session/i)).not.toBeInTheDocument();
+    expect(screen.getByText("MongoDB")).toBeVisible();
+    expect(screen.getByRole("heading", { name: /ai-assisted questions/i })).toBeVisible();
   });
 
   it("keeps the homepage available to authenticated visitors", () => {

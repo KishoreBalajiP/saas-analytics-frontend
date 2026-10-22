@@ -1,8 +1,8 @@
 # Terms of Service
 
-## About this draft
+## Review status
 
-This is a draft template. It describes how the Analivo application works today. It is not a binding agreement until the operator publishes reviewed terms that name the contracting entity, governing law and commercial terms.
+This informational document describes how the Analivo application works today. It is not a binding agreement until the operator publishes reviewed terms that name the contracting entity, governing law and commercial terms.
 
 ## Using the service
 

@@ -25,7 +25,7 @@ function Inlines({ inlines }: { inlines: Inline[] }) {
 
 /**
  * A legal document rendered from a bundled Markdown file (onboarding). Every
- * page carries the "Draft pending legal review" banner: these are templates,
+ * page carries a pending-review banner: these are templates,
  * not final terms.
  */
 export function LegalPage({ source }: { source: string }) {
@@ -48,7 +48,7 @@ export function LegalPage({ source }: { source: string }) {
           role="note"
           className="mb-10 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium leading-6 text-amber-900"
         >
-          Draft pending legal review. This document is a template and is not yet final legal terms.
+          Pending legal review. This document is informational and is not yet final legal terms.
           Version {LEGAL_DOCUMENT_VERSION}.
         </div>
         <article className="space-y-5">
