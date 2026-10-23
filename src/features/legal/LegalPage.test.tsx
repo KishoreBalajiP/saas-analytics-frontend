@@ -12,8 +12,6 @@ vi.mock("@/components/common/Brand", () => ({ Brand: () => <span>Analivo</span> 
 import cookies from "@/content/legal/cookies.md?raw";
 import privacy from "@/content/legal/privacy.md?raw";
 import terms from "@/content/legal/terms.md?raw";
-import { LEGAL_DOCUMENT_VERSION } from "@/content/legal/version";
-
 import { LegalPage } from "./LegalPage";
 import { parseMarkdown } from "./markdown";
 
@@ -23,13 +21,12 @@ describe("legal pages (onboarding)", () => {
     ["privacy", privacy, "Privacy Policy"],
     ["cookies", cookies, "Cookie Policy"],
   ] as const) {
-    it(`${name} renders from markdown with the review-status banner`, () => {
+    it(`${name} renders from markdown without a draft-status banner`, () => {
       render(<LegalPage source={source} />);
       expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
-      const note = screen.getByRole("note");
-      expect(note).toHaveTextContent("Pending legal review");
-      expect(note).toHaveTextContent(LEGAL_DOCUMENT_VERSION);
-      expect(screen.getByText(/To be completed after legal review/)).toBeInTheDocument();
+      expect(screen.queryByRole("note")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Pending legal review/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/To be completed after legal review/i)).not.toBeInTheDocument();
     });
   }
 

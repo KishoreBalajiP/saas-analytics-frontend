@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import * as authApi from "@/features/auth/api";
 import { ApiError } from "@/lib/api/client";
-import { CookiesBlockedNotice } from "@/lib/auth/CookiesBlockedNotice";
 import { storeTenantSlug, useTenantSession } from "@/lib/auth/session";
 
 /** A workspace slug may arrive from registration or an accepted invitation. */
@@ -30,7 +29,7 @@ export const Route = createFileRoute("/login/")({
 
 export function TenantLoginPage() {
   const navigate = useNavigate();
-  const { status, setSession, refetch, restoreError } = useTenantSession();
+  const { status, setSession, refetch } = useTenantSession();
   const [tenantSlug, setTenantSlug] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -110,7 +109,11 @@ export function TenantLoginPage() {
         toast.error("Email verification required. Would you like to resend the verification link?");
         return;
       }
-      toast.error(error instanceof Error ? error.message : "Sign in failed");
+      toast.error(
+        error instanceof ApiError && error.isRateLimited
+          ? "Too many sign-in attempts. Please wait and try again."
+          : "Sign-in failed. Check your details and try again.",
+      );
     },
   });
 
@@ -129,14 +132,11 @@ export function TenantLoginPage() {
 
   return (
     <Card className="w-full border-border/80 shadow-lifted">
-      <CardHeader>
-        <CardTitle>Sign in to your workspace</CardTitle>
-        <CardDescription>
-          Enter your workspace slug together with your account credentials.
-        </CardDescription>
+      <CardHeader className="space-y-3">
+        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardDescription>Sign in to continue to your Analivo workspace.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {restoreError === "cookies_blocked" ? <CookiesBlockedNotice /> : null}
         <form
           className="space-y-4"
           onSubmit={(event) => {

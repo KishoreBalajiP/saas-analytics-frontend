@@ -13,6 +13,9 @@ import * as analyticsApi from "@/features/analytics/api";
 import { DateRangeFields } from "@/features/analytics/components/DateRangeFields";
 import { DATE_BUCKET_OPTIONS } from "@/features/analytics/dateRange";
 import * as dashboardsApi from "@/features/dashboards/api";
+import { ALL_WIDGET_TYPES } from "@/features/dashboards/chartRecommendation";
+import * as metricsApi from "@/features/metrics/api";
+import { MetricPicker } from "@/features/metrics/components/MetricPicker";
 import { ApiError } from "@/lib/api/client";
 import {
   BUILDER_FILTER_OPS,
@@ -36,7 +39,7 @@ import type {
   WidgetType,
 } from "@/lib/api/types";
 
-const WIDGET_TYPES: WidgetType[] = ["kpi", "table", "bar", "line", "area", "pie"];
+const WIDGET_TYPES: WidgetType[] = ALL_WIDGET_TYPES;
 const DEFAULT_POSITION = { x: 0, y: 0, w: 6, h: 4 };
 const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
 
@@ -77,6 +80,15 @@ export function WidgetBuilder({
     queryFn: () => dashboardsApi.datasetSchema(state.datasetId),
     enabled: !!state.datasetId,
   });
+  // Saved metrics: only approved ones on the chosen dataset are offered.
+  const metricsQuery = useQuery({
+    queryKey: ["metrics", "list", "approved"],
+    queryFn: () => metricsApi.list({ status: "approved", limit: 100 }),
+    enabled: state.type !== "table",
+  });
+  const datasetMetrics = (metricsQuery.data?.data ?? []).filter(
+    (m) => m.status === "approved" && (!state.datasetId || m.connectorId === state.datasetId),
+  );
   const fields = schemaQuery.data?.fields ?? [];
   const fieldNames = fields.map((f) => f.name);
   const dateFields = fields
@@ -207,56 +219,73 @@ export function WidgetBuilder({
 
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Metrics</legend>
-            {state.metrics.map((m, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
-                <select
-                  aria-label={`Metric ${i + 1} aggregation`}
-                  className={selectClass}
-                  value={m.op}
-                  onChange={(e) => {
-                    const metrics = [...state.metrics];
-                    metrics[i] = { ...m, op: e.target.value as MetricOp };
-                    update({ metrics });
-                  }}
-                >
-                  {BUILDER_METRIC_OPS.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  aria-label={`Metric ${i + 1} field`}
-                  list={listId}
-                  placeholder={m.op === "count" ? "(rows)" : "field"}
-                  value={m.field}
-                  onChange={(e) => {
-                    const metrics = [...state.metrics];
-                    metrics[i] = { ...m, field: e.target.value };
-                    update({ metrics });
-                  }}
-                />
-                <Input
-                  aria-label={`Metric ${i + 1} name`}
-                  placeholder={metricAlias({ op: m.op, field: m.field })}
-                  value={m.alias}
-                  onChange={(e) => {
-                    const metrics = [...state.metrics];
-                    metrics[i] = { ...m, alias: e.target.value };
-                    update({ metrics });
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`Remove metric ${i + 1}`}
-                  onClick={() => update({ metrics: state.metrics.filter((_, j) => j !== i) })}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+            {state.metrics.map((m, i) =>
+              m.ref ? (
+                <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                  <span>
+                    Saved metric <span className="font-mono">{metricAlias(m)}</span>
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Remove metric ${i + 1}`}
+                    onClick={() => update({ metrics: state.metrics.filter((_, j) => j !== i) })}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
+                  <select
+                    aria-label={`Metric ${i + 1} aggregation`}
+                    className={selectClass}
+                    value={m.op}
+                    onChange={(e) => {
+                      const metrics = [...state.metrics];
+                      metrics[i] = { ...m, op: e.target.value as MetricOp };
+                      update({ metrics });
+                    }}
+                  >
+                    {BUILDER_METRIC_OPS.map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    aria-label={`Metric ${i + 1} field`}
+                    list={listId}
+                    placeholder={m.op === "count" ? "(rows)" : "field"}
+                    value={m.field}
+                    onChange={(e) => {
+                      const metrics = [...state.metrics];
+                      metrics[i] = { ...m, field: e.target.value };
+                      update({ metrics });
+                    }}
+                  />
+                  <Input
+                    aria-label={`Metric ${i + 1} name`}
+                    placeholder={metricAlias({ op: m.op, field: m.field })}
+                    value={m.alias}
+                    onChange={(e) => {
+                      const metrics = [...state.metrics];
+                      metrics[i] = { ...m, alias: e.target.value };
+                      update({ metrics });
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Remove metric ${i + 1}`}
+                    onClick={() => update({ metrics: state.metrics.filter((_, j) => j !== i) })}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ),
+            )}
             <FieldErrors messages={errs("query.metrics")} />
             <Button
               type="button"
@@ -268,6 +297,16 @@ export function WidgetBuilder({
             >
               <Plus className="mr-1 h-3.5 w-3.5" /> Add metric
             </Button>
+            {state.type !== "table" && (
+              <MetricPicker
+                metrics={datasetMetrics}
+                onPick={(ref) =>
+                  update({
+                    metrics: [...state.metrics, { op: "count", field: "", alias: "", ref }],
+                  })
+                }
+              />
+            )}
           </fieldset>
 
           <fieldset className="space-y-2">
@@ -406,7 +445,7 @@ export function WidgetBuilder({
 
           <fieldset className="grid gap-3 sm:grid-cols-2">
             <legend className="mb-1 text-sm font-medium">Display</legend>
-            {["bar", "line", "area", "pie"].includes(state.type) ? (
+            {["bar", "line", "area", "pie", "doughnut", "scatter"].includes(state.type) ? (
               <div className="space-y-1">
                 <Label htmlFor="builder-x">Category / time axis</Label>
                 <select
@@ -463,7 +502,7 @@ export function WidgetBuilder({
                 />
               </div>
             )}
-            {state.type === "bar" || state.type === "pie" ? (
+            {state.type === "bar" || state.type === "pie" || state.type === "doughnut" ? (
               <>
                 <div className="space-y-1">
                   <Label htmlFor="builder-limit">Top N categories</Label>

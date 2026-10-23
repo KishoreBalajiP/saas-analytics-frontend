@@ -57,6 +57,8 @@ export interface MetricDraft {
   op: MetricOp;
   field: string;
   alias: string;
+  /** A saved, approved metric ('metric:<key>'); op/field are then ignored. */
+  ref?: string;
 }
 export interface GroupDraft {
   field: string;
@@ -106,6 +108,7 @@ export function initialState(widget: Widget | null): BuilderState {
       op: m.op,
       field: m.field ?? "",
       alias: m.alias ?? "",
+      ...(m.ref ? { ref: m.ref } : {}),
     })),
     groupBy: (q.groupBy ?? []).map((g) =>
       typeof g === "string" ? { field: g, bucket: "" } : { field: g.field, bucket: g.bucket ?? "" },
@@ -128,8 +131,9 @@ export function initialState(widget: Widget | null): BuilderState {
   };
 }
 
-export function metricAlias(m: { op: string; field?: string; alias?: string }) {
+export function metricAlias(m: { op: string; field?: string; alias?: string; ref?: string }) {
   if (m.alias) return m.alias;
+  if (m.ref) return m.ref.replace(/^metric:/, "").replace(/@d+$/, "");
   return m.field ? `${m.op}_${m.field}` : m.op;
 }
 
@@ -149,6 +153,7 @@ export function toWidgetBody(state: BuilderState, fields: DatasetSchemaField[] =
   if (!state.datasetId) issues.push({ field: "datasetId", message: "Choose a dataset." });
 
   const metrics = state.metrics.map((m, i) => {
+    if (m.ref) return { ref: m.ref, ...(m.alias ? { alias: m.alias } : {}) } as QueryMetric;
     if (m.op !== "count" && !m.field)
       issues.push({ field: `query.metrics[${i}].field`, message: `${m.op} needs a field.` });
     return {
@@ -206,10 +211,15 @@ export function toWidgetBody(state: BuilderState, fields: DatasetSchemaField[] =
     issues.push({ field: "query.metrics", message: "A KPI needs at least one aggregate metric." });
   if (state.type === "kpi" && groupBy.length)
     issues.push({ field: "query.groupBy", message: "A KPI shows one value: remove group-by." });
-  if (["bar", "line", "area", "pie"].includes(state.type) && !groupBy.length)
+  if (["bar", "line", "area", "pie", "doughnut", "scatter"].includes(state.type) && !groupBy.length)
     issues.push({
       field: "query.groupBy",
       message: `A ${state.type} chart needs a group-by field.`,
+    });
+  if (state.type === "scatter" && metrics.length < 2)
+    issues.push({
+      field: "query.metrics",
+      message: "A scatter chart needs two metrics (x and y).",
     });
 
   const s = state.spec;
@@ -219,7 +229,7 @@ export function toWidgetBody(state: BuilderState, fields: DatasetSchemaField[] =
   if (s.numberFormat === "currency" && s.currency)
     visualization.currency = s.currency.toUpperCase();
   if (s.unit) visualization.unit = s.unit;
-  if ((state.type === "bar" || state.type === "pie") && s.limit) {
+  if ((state.type === "bar" || state.type === "pie" || state.type === "doughnut") && s.limit) {
     visualization.limit = Number(s.limit);
     if (s.showOther) visualization.showOther = true;
   }

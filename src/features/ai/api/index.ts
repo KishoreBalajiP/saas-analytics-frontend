@@ -6,6 +6,22 @@ export interface AiStatus {
   enabled: boolean;
   consent: boolean;
   providerConfigured: boolean;
+  /** Plan includes ai_assistant (server-authoritative). */
+  entitled?: boolean;
+  /** Why Ask is unavailable (first failing gate) and what to do about it. */
+  reason?: string | null;
+  action?: string | null;
+}
+
+export type AiChartType = "kpi" | "table" | "bar" | "line" | "area" | "pie";
+
+export interface AiVisualization {
+  type: AiChartType;
+  alternatives: AiChartType[];
+  xField: string | null;
+  xBucket: string | null;
+  dimensions: string[];
+  measures: string[];
 }
 
 export interface AiAnswer {
@@ -19,6 +35,10 @@ export interface AiAnswer {
   assumptions?: string[];
   checks?: string[];
   result?: { rows: Array<Record<string, unknown>>; columns: string[] };
+  /** Server-recommended chart, derived from the actual result shape. */
+  visualization?: AiVisualization;
+  /** Set when this answer followed up on an earlier question. */
+  previousQuestionId?: string;
   provenance?: {
     datasetId: string;
     datasetName: string | null;
@@ -33,7 +53,10 @@ export interface AiAnswer {
 export const status = () => request<AiStatus>("/ai/status");
 export const setConsent = (granted: boolean) =>
   request<{ granted: boolean }>("/ai/consent", { method: "PUT", body: { granted } });
-export const ask = (question: string) =>
-  request<AiAnswer>("/ai/questions", { method: "POST", body: { question } });
+export const ask = (question: string, previousQuestionId?: string) =>
+  request<AiAnswer>("/ai/questions", {
+    method: "POST",
+    body: previousQuestionId ? { question, previousQuestionId } : { question },
+  });
 export const feedback = (id: string, rating: "up" | "down") =>
   request<unknown>(`/ai/questions/${id}/feedback`, { method: "POST", body: { rating } });

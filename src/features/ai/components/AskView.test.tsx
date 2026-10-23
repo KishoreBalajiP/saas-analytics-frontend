@@ -9,6 +9,12 @@ const api = vi.hoisted(() => ({
   setConsent: vi.fn(),
 }));
 vi.mock("@/features/ai/api", () => api);
+// No router in these tests: render links as plain anchors.
+vi.mock("@/components/common/AppLink", () => ({
+  AppLink: ({ to, children }: { to: string; children: React.ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
+}));
 vi.mock("@/lib/auth/session", () => ({
   useTenantSession: () => ({ permissions: ["analytics.view"] }),
 }));
@@ -86,5 +92,35 @@ describe("AskView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
     fireEvent.click(await screen.findByRole("button", { name: "order_date" }));
     expect(await screen.findByText(/could not be answered \(missing_field\)/)).toBeInTheDocument();
+  });
+
+  it("renders the recommended chart, switches type and asks a follow-up", async () => {
+    api.status.mockResolvedValue(on);
+    api.ask.mockResolvedValue({
+      id: "q1",
+      outcome: "answered",
+      plan: { metrics: [] },
+      result: { rows: [{ region: "EU", revenue: 10 }], columns: ["region", "revenue"] },
+      visualization: {
+        type: "pie",
+        alternatives: ["pie", "bar", "table"],
+        xField: "region",
+        xBucket: null,
+        dimensions: ["region"],
+        measures: ["revenue"],
+      },
+      provenance: { datasetId: "d", datasetName: "Orders", rowCount: 1, total: 1, timezone: "UTC" },
+    });
+    renderView();
+    fireEvent.change(await screen.findByLabelText("Question"), { target: { value: "Revenue" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    const pie = await screen.findByRole("button", { name: "Pie (recommended)" });
+    expect(pie).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    expect(screen.getByRole("button", { name: "Table" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("EU")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Ask a follow-up"), { target: { value: "by city" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask follow-up" }));
+    await waitFor(() => expect(api.ask).toHaveBeenLastCalledWith("by city", "q1"));
   });
 });

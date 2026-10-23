@@ -28,6 +28,7 @@ import { EmbedSettingsCard, ShareLinkCard } from "./EmbedSettings";
 import { parseOrigins, sdkSnippet } from "../snippet";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
+import { useFeature } from "@/features/billing/hooks";
 
 /** The backend refuses embed tokens that live for less than a minute. */
 const MIN_EMBED_TTL_SEC = 60;
@@ -39,7 +40,10 @@ function date(value?: string | null) {
 export function EmbedView() {
   const { permissions } = useTenantSession();
   const canView = hasPermission(permissions, Permissions.EMBED_VIEW);
-  const canCreate = hasPermission(permissions, Permissions.EMBED_CREATE);
+  const embedding = useFeature("embedding");
+  // Plan entitlement: never offer creating a token the API would refuse.
+  const canCreate =
+    hasPermission(permissions, Permissions.EMBED_CREATE) && (!embedding.known || embedding.enabled);
   const canDelete = hasPermission(permissions, Permissions.EMBED_DELETE);
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);

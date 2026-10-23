@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 
 import { AppLink } from "@/components/common/AppLink";
-import { Brand } from "@/components/common/Brand";
+import { PublicAuthLayout } from "@/components/common/PublicAuthLayout";
 import { InlineFieldErrors } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,6 +109,10 @@ export function RegistrationPage() {
     const token = new URLSearchParams(window.location.search).get("token");
     if (!token || verificationStarted.current) return;
     verificationStarted.current = true;
+    // The token is single-use. Remove it from browser history immediately so
+    // refresh/back navigation cannot submit the same token a second time.
+    const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+    window.history.replaceState({}, document.title, cleanUrl);
     setVerificationState("checking");
     verifyToken(token);
   }, [verifyToken]);
@@ -132,8 +136,8 @@ export function RegistrationPage() {
             className="rounded-lg border border-border bg-muted/40 p-4 text-sm leading-6 text-muted-foreground"
             role="status"
           >
-            Your workspace is pending email verification. A verification link expires in 15 minutes
-            and can only be used once.
+            Your workspace is pending email verification. The verification link expires after a
+            limited time and can only be used once.
           </div>
           {registeredTenantSlug ? (
             <p className="text-sm">
@@ -232,11 +236,8 @@ export function RegistrationPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
-      <div className="mb-8">
-        <Brand />
-      </div>
-      <Card className="w-full max-w-xl mx-auto">
+    <PublicAuthLayout contentClassName="max-w-2xl">
+      <Card className="mx-auto w-full max-w-2xl">
         <CardHeader>
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <MailQuestion className="h-5 w-5" />
@@ -350,7 +351,6 @@ export function RegistrationPage() {
                 <AppLink to="/privacy" className="text-primary hover:underline">
                   Privacy Policy
                 </AppLink>{" "}
-                (pending legal review; these documents are not final legal terms).
               </Label>
             </div>
             <InlineFieldErrors error={mutation.error} />
@@ -375,7 +375,7 @@ export function RegistrationPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </PublicAuthLayout>
   );
 }
 
@@ -389,11 +389,8 @@ export function AccessPage({
   message?: string;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-12">
-      <div className="mb-8">
-        <Brand />
-      </div>
-      <Card className="w-full max-w-md">
+    <PublicAuthLayout contentClassName="max-w-xl">
+      <Card className="w-full max-w-xl">
         <CardHeader>
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <CheckCircle2 className="h-5 w-5" />
@@ -416,6 +413,6 @@ export function AccessPage({
           </Button>
         </CardContent>
       </Card>
-    </div>
+    </PublicAuthLayout>
   );
 }

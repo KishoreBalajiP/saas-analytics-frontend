@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -11,6 +12,8 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -43,6 +46,29 @@ const PALETTE = [
 ];
 
 type Row = Record<string, unknown>;
+
+/**
+ * A cell value: grouped rows are flat, raw connector rows keep their fields
+ * under `data` (the result columns name those data keys).
+ */
+/** Raw rows as flat field maps (KPI and chart axes read top-level keys). */
+function flattenRow(row: Row): Row {
+  const data = row["data"];
+  if (!data || typeof data !== "object" || Array.isArray(data)) return row;
+  const rest: Row = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (key !== "data" && !key.startsWith("_") && key !== "tenantId") rest[key] = value;
+  }
+  return { ...rest, ...(data as Row) };
+}
+
+export function cellValue(row: Row, column: string): unknown {
+  if (column in row) return row[column];
+  const data = row["data"];
+  return data && typeof data === "object" && !Array.isArray(data)
+    ? (data as Row)[column]
+    : undefined;
+}
 
 function columnsOf(result: AnalyticsResult) {
   if (result.columns?.length) return result.columns;
@@ -111,7 +137,7 @@ export function WidgetView({
   /** Table paging (vizbuilder): called with the requested page. */
   onPageChange?: (page: number) => void;
 }) {
-  const rows = result?.rows ?? [];
+  const rows = useMemo(() => (result?.rows ?? []).map(flattenRow), [result?.rows]);
   const viz = result?.visualization ?? null;
   const fmt = makeNumberFormatter(viz);
 
@@ -145,23 +171,33 @@ export function WidgetView({
     const page = result?.page ?? 1;
     const pages = result?.pages ?? 1;
     return (
-      <div className="overflow-x-auto">
-        <Table>
+      <div className="max-w-full overflow-x-auto rounded-md border border-border">
+        <Table className="min-w-full">
           <TableHeader>
             <TableRow>
               {columns.map((column) => (
-                <TableHead key={column}>{column}</TableHead>
+                <TableHead key={column} className="whitespace-nowrap">
+                  {column}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.slice(0, 50).map((row, index) => (
               <TableRow key={index}>
-                {columns.map((column) => (
-                  <TableCell key={column} className="font-mono text-xs">
-                    {measures.has(column) ? fmt(row[column]) : formatCell(row[column])}
-                  </TableCell>
-                ))}
+                {columns.map((column) => {
+                  const value = cellValue(row, column);
+                  const text = measures.has(column) ? fmt(value) : formatCell(value);
+                  return (
+                    <TableCell
+                      key={column}
+                      className="max-w-[16rem] truncate py-1.5 font-mono text-xs"
+                      title={String(text)}
+                    >
+                      {text}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>
@@ -207,7 +243,45 @@ export function WidgetView({
     );
   }
 
-  if (type === "pie") {
+  if (type === "scatter") {
+    const [xKey, yKey] = valueKeys;
+    if (!xKey || !yKey) {
+      return (
+        <EmptyState
+          title="Two metrics needed"
+          description="A scatter chart plots one numeric metric against another."
+        />
+      );
+    }
+    return (
+      <div>
+        <ResponsiveContainer width="100%" height={height}>
+          <ScatterChart>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis
+              type="number"
+              dataKey={xKey}
+              name={xKey}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(v) => fmt(v)}
+            />
+            <YAxis
+              type="number"
+              dataKey={yKey}
+              name={yKey}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(v) => fmt(v)}
+            />
+            <Tooltip formatter={(v) => fmt(v)} />
+            <Scatter name={nameKey} data={data} fill={PALETTE[0]} />
+          </ScatterChart>
+        </ResponsiveContainer>
+        <Footnotes result={result!} />
+      </div>
+    );
+  }
+
+  if (type === "pie" || type === "doughnut") {
     const key = valueKeys[0]!;
     return (
       <div>
@@ -215,7 +289,14 @@ export function WidgetView({
           <PieChart>
             <Tooltip formatter={(v) => fmt(v)} />
             <Legend />
-            <Pie data={data} dataKey={key} nameKey={nameKey} outerRadius={90} label>
+            <Pie
+              data={data}
+              dataKey={key}
+              nameKey={nameKey}
+              outerRadius={90}
+              {...(type === "doughnut" ? { innerRadius: 50 } : {})}
+              label
+            >
               {data.map((_, index) => (
                 <Cell key={index} fill={PALETTE[index % PALETTE.length]} />
               ))}

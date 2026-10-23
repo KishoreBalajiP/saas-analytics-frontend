@@ -133,7 +133,7 @@ describe("self-service registration and email verification", () => {
   });
 
   // onboarding: consent is required and linked.
-  it("does not submit without accepting the terms, and links the legal drafts", async () => {
+  it("does not submit without accepting the terms, and links the legal documents", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.type(screen.getByLabelText("Full name"), "Workspace Owner");

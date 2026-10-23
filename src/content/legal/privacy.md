@@ -1,9 +1,5 @@
 # Privacy Policy
 
-## Review status
-
-This informational document lists the personal data the application processes today. The operator must complete the controller identity, contacts, legal bases and retention periods before publishing it as final.
-
 ## Data the application processes
 
 - **Account data**: name, email address, password hash, workspace membership and roles.
@@ -17,9 +13,3 @@ This informational document lists the personal data the application processes to
 - Review and sign out your active sessions from your profile.
 - Choose which notification channels you receive from the notifications page.
 
-## To be completed after legal review
-
-- Data controller and privacy contact
-- Legal bases for each purpose
-- Sub-processors and international transfers
-- Retention periods and data subject request process

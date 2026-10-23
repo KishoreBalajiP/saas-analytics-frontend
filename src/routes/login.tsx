@@ -1,8 +1,7 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
-import { Brand } from "@/components/common/Brand";
+import { PublicAuthLayout } from "@/components/common/PublicAuthLayout";
 import { TenantSessionProvider } from "@/lib/auth/session";
-import { PublicFooter } from "@/components/common/PublicFooter";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -19,19 +18,9 @@ export const Route = createFileRoute("/login")({
 function LoginLayout() {
   return (
     <TenantSessionProvider>
-      <div className="min-h-screen bg-background">
-        <main className="flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-8">
-          <div className="mb-8">
-            <Brand />
-          </div>
-          <div className="w-full max-w-md">
-            <Outlet />
-          </div>
-          <div className="mt-8 w-full max-w-md sm:mt-10">
-            <PublicFooter />
-          </div>
-        </main>
-      </div>
+      <PublicAuthLayout contentClassName="max-w-xl">
+        <Outlet />
+      </PublicAuthLayout>
     </TenantSessionProvider>
   );
 }

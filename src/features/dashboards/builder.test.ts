@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
-import { errorsFor, initialState, toWidgetBody, type BuilderState } from "./builder";
+import { errorsFor, initialState, metricAlias, toWidgetBody, type BuilderState } from "./builder";
 
 const base = (over: Partial<BuilderState> = {}): BuilderState => ({
   ...initialState(null),
@@ -66,5 +66,22 @@ describe("errorsFor", () => {
     expect(errorsFor(err, "visualization")).toEqual(["xField: must be a groupBy field"]);
     expect(errorsFor(err, "query.metrics")).toEqual(["[0].field: is required for sum"]);
     expect(errorsFor(err, "query.groupBy")).toEqual([]);
+  });
+});
+
+describe("saved metric references", () => {
+  it("round-trips a metric ref without requiring a field", () => {
+    const state = initialState({
+      _id: "w",
+      name: "Revenue",
+      type: "kpi",
+      datasetId: "d1",
+      query: { metrics: [{ ref: "metric:revenue", op: "count", field: "" }] },
+    } as never);
+    expect(state.metrics[0]?.ref).toBe("metric:revenue");
+    const { issues, body } = toWidgetBody(state);
+    expect(issues).toEqual([]);
+    expect(body.query.metrics).toEqual([{ ref: "metric:revenue" }]);
+    expect(metricAlias(state.metrics[0]!)).toBe("revenue");
   });
 });

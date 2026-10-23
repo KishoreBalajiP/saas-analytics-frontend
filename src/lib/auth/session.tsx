@@ -57,14 +57,58 @@ export function storeTenantSlug(slug: string) {
   }
 }
 
+type CachedSession = {
+  accessToken: string;
+  me: Me;
+  tenantSlug: string | null;
+};
+
+const sessionCache: Partial<Record<"tenant" | "admin", CachedSession>> = {};
+
+function readCachedSession(audience: "tenant" | "admin") {
+  const accessToken = getAccessToken(audience);
+  const cached = sessionCache[audience];
+  return accessToken && cached?.accessToken === accessToken ? cached : null;
+}
+
+function clearCachedSession(audience: "tenant" | "admin") {
+  delete sessionCache[audience];
+}
+
+/** Transient (non-auth) errors on the profile call are retried twice. */
+async function fetchProfileWithRetry(audience: "tenant" | "admin"): Promise<Me> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return audience === "admin" ? await authApi.adminMe() : await authApi.tenantMe();
+    } catch (error) {
+      lastError = error;
+      const status = error instanceof ApiError ? error.statusCode : 0;
+      const transient = status === 0 || status === 408 || status === 429 || status >= 500;
+      if (!transient) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 const TenantSessionContext = createContext<SessionState | null>(null);
 const AdminSessionContext = createContext<SessionState | null>(null);
 
 function useSessionState(audience: "tenant" | "admin"): SessionState {
-  const [status, setStatus] = useState<SessionStatus>("loading");
+  // Each protected route owns a provider, so navigation creates a new state
+  // object. Reuse the already-validated profile for this access token while
+  // the new provider revalidates it; this keeps permission-gated pages from
+  // rendering with an empty permission list during navigation.
+  const cachedSession = readCachedSession(audience);
+  const [status, setStatus] = useState<SessionStatus>(() =>
+    cachedSession ? "authenticated" : "loading",
+  );
   const [restoreError, setRestoreError] = useState<SessionRestoreError | null>(null);
-  const [me, setMe] = useState<Me | null>(null);
-  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
+  const [me, setMe] = useState<Me | null>(() => cachedSession?.me ?? null);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(
+    () => cachedSession?.tenantSlug ?? readStoredSlug(),
+  );
   // Cached server data belongs to one identity. Clear it on sign-out and when
   // a new session starts so the next user in this tab never sees the
   // previous tenant's data. (Undefined when no QueryClientProvider is
@@ -84,20 +128,37 @@ function useSessionState(audience: "tenant" | "admin"): SessionState {
             error.code === "SESSION_COOKIE_MISSING" &&
             expectsLiveSession(audience);
           setRestoreError(blocked ? "cookies_blocked" : null);
+          clearCachedSession(audience);
           setMe(null);
           setStatus("anonymous");
           return;
         }
       }
-      const profile = audience === "admin" ? await authApi.adminMe() : await authApi.tenantMe();
+      const profile = await fetchProfileWithRetry(audience);
+      const currentToken = getAccessToken(audience);
+      if (currentToken) {
+        sessionCache[audience] = {
+          accessToken: currentToken,
+          me: profile,
+          tenantSlug: profile.tenantId ?? readStoredSlug(),
+        };
+      }
       setMe(profile);
       if (profile.tenantId) setTenantSlug(profile.tenantId);
       setRestoreError(null);
       setStatus("authenticated");
     } catch (error) {
-      if (error instanceof ApiError && (error.isUnauthorized || error.isForbidden)) {
-        setAccessToken(audience, null);
+      const authFailure = error instanceof ApiError && error.isUnauthorized;
+      // A transient failure (network, 429, 5xx, timeout) or a 403 on the
+      // profile call is not a sign-out: keep a session this tab already
+      // knows instead of bouncing the user to the sign-in page.
+      if (!authFailure && getAccessToken(audience) && sessionCache[audience]) {
+        setMe(sessionCache[audience]!.me);
+        setStatus("authenticated");
+        return;
       }
+      if (authFailure) setAccessToken(audience, null);
+      clearCachedSession(audience);
       setMe(null);
       setStatus("anonymous");
     }
@@ -115,6 +176,7 @@ function useSessionState(audience: "tenant" | "admin"): SessionState {
       onRemoteSignOut((signedOut) => {
         if (signedOut !== audience) return;
         queryClient?.clear();
+        clearCachedSession(audience);
         setMe(null);
         setStatus("anonymous");
       }),
@@ -130,6 +192,7 @@ function useSessionState(audience: "tenant" | "admin"): SessionState {
       else await authApi.logoutTenant();
     } finally {
       queryClient?.clear();
+      clearCachedSession(audience);
       setMe(null);
       setStatus("anonymous");
     }
@@ -138,6 +201,14 @@ function useSessionState(audience: "tenant" | "admin"): SessionState {
   const setSession = useCallback(
     (profile: Me, slug?: string) => {
       queryClient?.clear();
+      const currentToken = getAccessToken(audience);
+      if (currentToken) {
+        sessionCache[audience] = {
+          accessToken: currentToken,
+          me: profile,
+          tenantSlug: slug ?? profile.tenantId ?? readStoredSlug(),
+        };
+      }
       setMe(profile);
       setRestoreError(null);
       setStatus("authenticated");
@@ -146,7 +217,7 @@ function useSessionState(audience: "tenant" | "admin"): SessionState {
         storeTenantSlug(slug);
       }
     },
-    [queryClient],
+    [audience, queryClient],
   );
 
   const permissions = useMemo(() => me?.permissions ?? [], [me]);

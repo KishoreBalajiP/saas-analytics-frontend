@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as authApi from "@/features/auth/api";
 import { ApiError } from "@/lib/api/client";
-import { CookiesBlockedNotice } from "@/lib/auth/CookiesBlockedNotice";
 import { useAdminSession } from "@/lib/auth/session";
 
 import { AdminAuthLayout } from "./AdminAuthLayout";
@@ -29,7 +28,7 @@ function nextRoute(mfaEnrollmentRequired?: boolean) {
  */
 export function AdminLoginPage() {
   const navigate = useNavigate();
-  const { status, me, setSession, refetch, restoreError } = useAdminSession();
+  const { status, me, setSession, refetch } = useAdminSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [factor, setFactor] = useState("");
@@ -89,7 +88,6 @@ export function AdminLoginPage() {
         </a>
       }
     >
-      {restoreError === "cookies_blocked" ? <CookiesBlockedNotice /> : null}
       <form
         className="space-y-4"
         onSubmit={(event) => {

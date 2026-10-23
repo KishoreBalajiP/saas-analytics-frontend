@@ -30,6 +30,21 @@ export function disableTenantMfa(password: string, factor: SecondFactor) {
   });
 }
 
+export function stepUpTenant(password: string, factor: SecondFactor) {
+  return request<{ stepUpExpiresAt: string }>("/auth/step-up", {
+    method: "POST",
+    audience: "tenant",
+    body: { password, ...factor },
+  });
+}
+
+export function regenerateTenantRecoveryCodes() {
+  return request<{ recoveryCodes: string[]; recoveryCodesRemaining: number; generatedAt: string }>(
+    "/auth/mfa/recovery-codes",
+    { method: "POST", audience: "tenant" },
+  );
+}
+
 export const workspaceSecurityKey = ["workspace", "security"] as const;
 
 export function getWorkspaceSecurity() {

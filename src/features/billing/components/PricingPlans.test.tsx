@@ -139,9 +139,8 @@ describe("PricingPlans", () => {
     unmount();
     api.listPlans.mockResolvedValue(plans(null));
     renderPlans();
-    const button = await screen.findByRole("button", { name: /Buy monthly term/ });
-    expect(button).toBeDisabled();
-    expect(screen.getByTestId("provider-mode").textContent).toMatch(/not available/);
+    expect(screen.queryByRole("button", { name: /Choose Pro/ })).toBeNull();
+    expect((await screen.findByTestId("provider-mode")).textContent).toMatch(/not available/);
   });
 
   it("waits for the webhook-confirmed status before showing success", async () => {
@@ -160,7 +159,7 @@ describe("PricingPlans", () => {
       });
     });
     renderPlans({ openCheckout });
-    fireEvent.click(await screen.findByRole("button", { name: /Buy monthly term/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Choose Pro/ }));
     await waitFor(() =>
       expect(api.createCheckout).toHaveBeenCalledWith("t1", { planId: "pro", interval: "month" }),
     );
@@ -189,7 +188,7 @@ describe("PricingPlans", () => {
       });
     });
     renderPlans({ openCheckout });
-    fireEvent.click(await screen.findByRole("button", { name: /Buy monthly term/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Choose Pro/ }));
     expect(await screen.findByTestId("checkout-delayed")).toBeInTheDocument();
     expect(screen.queryByTestId("checkout-confirmed")).toBeNull();
   });
@@ -201,10 +200,17 @@ describe("PricingPlans", () => {
       handlers.onDismiss();
     });
     renderPlans({ openCheckout });
-    fireEvent.click(await screen.findByRole("button", { name: /Buy monthly term/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Choose Pro/ }));
     expect((await screen.findByTestId("checkout-error")).textContent).toMatch(
       /closed before payment/,
     );
     expect(api.verifyPayment).not.toHaveBeenCalled();
+  });
+
+  it("allows the matching pending order to resume without enabling other parallel purchases", async () => {
+    api.listPlans.mockResolvedValue(plans());
+    renderPlans({ pendingPlanId: "pro", pendingStatus: "pending" });
+    const resume = await screen.findByRole("button", { name: "Continue payment" });
+    expect(resume).toBeEnabled();
   });
 });

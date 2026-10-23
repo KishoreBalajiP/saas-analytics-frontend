@@ -52,10 +52,11 @@ export function SupportAccessCard() {
   const canView = hasPermission(permissions, SETTINGS_VIEW);
   const canConfigure = hasPermission(permissions, SETTINGS_CONFIGURE);
   const inSupportSession = Boolean(useSupportSession());
+  const [historyPage, setHistoryPage] = useState(1);
 
   const query = useQuery({
-    queryKey: [...supportApi.supportAccessKeys.all],
-    queryFn: supportApi.getWorkspaceSupportAccess,
+    queryKey: [...supportApi.supportAccessKeys.all, historyPage],
+    queryFn: () => supportApi.getWorkspaceSupportAccess({ page: historyPage, limit: 10 }),
     enabled: canView,
   });
 
@@ -95,7 +96,12 @@ export function SupportAccessCard() {
           </p>
         ) : null}
         <SessionsTable data={query.data} mayChange={mayChange} />
-        <GrantHistory grants={query.data.grants} />
+        <GrantHistory
+          grants={query.data.grants}
+          page={query.data.grantsMeta?.page ?? historyPage}
+          pages={query.data.grantsMeta?.pages ?? 1}
+          onPageChange={setHistoryPage}
+        />
         <SupportActivity />
       </CardContent>
     </Card>
@@ -313,7 +319,17 @@ function SessionsTable({ data, mayChange }: { data: WorkspaceSupportAccess; mayC
   );
 }
 
-function GrantHistory({ grants }: { grants: SupportGrant[] }) {
+function GrantHistory({
+  grants,
+  page,
+  pages,
+  onPageChange,
+}: {
+  grants: SupportGrant[];
+  page: number;
+  pages: number;
+  onPageChange: (page: number) => void;
+}) {
   if (grants.length === 0) return null;
   return (
     <section className="space-y-2" aria-label="Support access history">
@@ -340,14 +356,17 @@ function GrantHistory({ grants }: { grants: SupportGrant[] }) {
           </li>
         ))}
       </ul>
+      <HistoryPager page={page} pages={pages} onPageChange={onPageChange} />
     </section>
   );
 }
 
 function SupportActivity() {
+  const [page, setPage] = useState(1);
+  const limit = 10;
   const query = useQuery({
-    queryKey: [...supportApi.supportAccessKeys.activity({ limit: 20 })],
-    queryFn: () => supportApi.listSupportActivity({ limit: 20 }),
+    queryKey: [...supportApi.supportAccessKeys.activity({ page, limit })],
+    queryFn: () => supportApi.listSupportActivity({ page, limit }),
   });
   return (
     <section className="space-y-2" aria-label="Support activity">
@@ -363,22 +382,66 @@ function SupportActivity() {
       ) : (query.data?.data.length ?? 0) === 0 ? (
         <p className="text-sm text-muted-foreground">No support activity yet.</p>
       ) : (
-        <ul className="space-y-1 text-sm">
-          {query.data?.data.map((row) => (
-            <li key={row.id} className="flex flex-wrap gap-2">
-              <span className="whitespace-nowrap text-muted-foreground">
-                {formatDateTime(row.occurredAt)}
-              </span>
-              <span>{supportActionLabel(row.action)}</span>
-              <span className="text-muted-foreground">
-                by {row.actor.type === "admin" ? "platform support" : "workspace"}{" "}
-                {row.actor.display ?? row.actor.id ?? ""}
-              </span>
-              {row.result === "failure" ? <Badge variant="outline">Refused</Badge> : null}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-1 text-sm">
+            {query.data?.data.map((row) => (
+              <li key={row.id} className="flex flex-wrap gap-2">
+                <span className="whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(row.occurredAt)}
+                </span>
+                <span>{supportActionLabel(row.action)}</span>
+                <span className="text-muted-foreground">
+                  by {row.actor.type === "admin" ? "platform support" : "workspace"}{" "}
+                  {row.actor.display ?? row.actor.id ?? ""}
+                </span>
+                {row.result === "failure" ? <Badge variant="outline">Refused</Badge> : null}
+              </li>
+            ))}
+          </ul>
+          <HistoryPager
+            page={query.data?.meta.page ?? page}
+            pages={query.data?.meta.pages ?? 1}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </section>
+  );
+}
+
+function HistoryPager({
+  page,
+  pages,
+  onPageChange,
+}: {
+  page: number;
+  pages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (pages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between gap-3 pt-2 text-sm">
+      <span className="text-muted-foreground">
+        Page {page} of {pages}
+      </span>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Previous
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page >= pages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -214,17 +214,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="w-full max-w-sm space-y-3">
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-32 w-full" />
-          <p className="text-sm text-muted-foreground">Restoring admin session…</p>
+          <p className="sr-only" role="status">
+            Loading workspace
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-background">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-transform lg:static lg:h-full lg:shrink-0 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -232,7 +234,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <Shield className="h-5 w-5 text-sidebar-primary" />
           <span className="font-display text-sm font-semibold tracking-tight">Admin Portal</span>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Admin navigation">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3" aria-label="Admin navigation">
           {ADMIN_NAV.filter(
             (item) =>
               hasPermission(permissions, item.permission) &&
@@ -245,19 +247,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 to={item.to}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "flex min-w-0 items-start gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                <span className="truncate">{item.label}</span>
-                {item.description && (
-                  <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5">
-                    {item.description}
-                  </p>
-                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate whitespace-nowrap">{item.label}</span>
+                  {item.description && (
+                    <span className="mt-0.5 block truncate whitespace-nowrap text-xs text-sidebar-foreground/60">
+                      {item.description}
+                    </span>
+                  )}
+                </span>
               </AppLink>
             );
           })}
@@ -273,8 +277,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-4 lg:px-8 backdrop-blur">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -324,7 +328,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </div>
-        <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   );

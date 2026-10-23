@@ -58,3 +58,15 @@ describe("DeveloperReference", () => {
     expect(await screen.findByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 });
+
+describe("withRealBaseUrl", () => {
+  it("replaces the spec placeholder host with the deployment origin", async () => {
+    const { withRealBaseUrl } = await import("./DeveloperReference");
+    expect(
+      withRealBaseUrl(
+        'curl "https://api.analivo.example/api/v1/external/v1/datasets"',
+        "https://app.test",
+      ),
+    ).toBe('curl "https://app.test/api/v1/external/v1/datasets"');
+  });
+});

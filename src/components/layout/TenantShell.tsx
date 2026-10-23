@@ -16,7 +16,9 @@ import {
   Settings,
   Sigma,
   ShieldAlert,
+  ShieldCheck,
   User,
+  X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -99,11 +101,16 @@ const NAV = [
   },
 ];
 
+const dismissedMfaRecommendations = new Set<string>();
+
 export function TenantShell({ children }: { children: ReactNode }) {
   const { status, me, tenantSlug, signOut } = useTenantSession();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mfaRecommendationDismissed, setMfaRecommendationDismissed] = useState(true);
+  const userId = me?.id ?? me?._id ?? null;
+  const mfaRecommendationKey = userId ? `analivo:mfa-recommendation-dismissed:${userId}` : null;
 
   // mfa-tenant: an enrolment-only session may only set up MFA.
   const mustEnrolMfa = status === "authenticated" && Boolean(me?.mfa?.enrollmentRequired);
@@ -113,6 +120,37 @@ export function TenantShell({ children }: { children: ReactNode }) {
       void navigate({ to: consumeSupportExit() ? "/admin/support" : "/login" });
     else if (mustEnrolMfa) void navigate({ to: "/mfa-setup" });
   }, [status, mustEnrolMfa, navigate]);
+
+  useEffect(() => {
+    if (!mfaRecommendationKey) return;
+    try {
+      setMfaRecommendationDismissed(
+        dismissedMfaRecommendations.has(mfaRecommendationKey) ||
+          window.localStorage.getItem(mfaRecommendationKey) === "true",
+      );
+    } catch {
+      setMfaRecommendationDismissed(dismissedMfaRecommendations.has(mfaRecommendationKey));
+    }
+  }, [mfaRecommendationKey]);
+
+  const showMfaRecommendation =
+    status === "authenticated" &&
+    !mustEnrolMfa &&
+    !me?.mfa?.enabled &&
+    !me?.mfa?.required &&
+    !mfaRecommendationDismissed;
+
+  const dismissMfaRecommendation = () => {
+    if (mfaRecommendationKey) {
+      dismissedMfaRecommendations.add(mfaRecommendationKey);
+      try {
+        window.localStorage.setItem(mfaRecommendationKey, "true");
+      } catch {
+        // Keep the dismissal for this browser session if storage is unavailable.
+      }
+    }
+    setMfaRecommendationDismissed(true);
+  };
 
   const unread = useQuery({
     queryKey: ["notifications", "unread-count"],
@@ -128,24 +166,26 @@ export function TenantShell({ children }: { children: ReactNode }) {
         <div className="w-full max-w-sm space-y-3">
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-32 w-full" />
-          <p className="text-sm text-muted-foreground">Restoring your session…</p>
+          <p className="sr-only" role="status">
+            Loading workspace
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-background">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-transform lg:static lg:h-full lg:shrink-0 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
           <Brand compact />
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Main navigation">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3" aria-label="Main navigation">
           {NAV.map((item) => {
             const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
             return (
@@ -154,21 +194,23 @@ export function TenantShell({ children }: { children: ReactNode }) {
                 to={item.to}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "flex min-w-0 items-start gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                <span className="truncate">{item.label}</span>
-                {item.description && (
-                  <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5">
-                    {item.description}
-                  </p>
-                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate whitespace-nowrap">{item.label}</span>
+                  {item.description && (
+                    <span className="mt-0.5 block truncate whitespace-nowrap text-xs text-sidebar-foreground/60">
+                      {item.description}
+                    </span>
+                  )}
+                </span>
                 {item.to === "/notifications" && (unread.data?.count ?? 0) > 0 ? (
-                  <Badge className="ml-auto" variant="secondary">
+                  <Badge className="ml-auto shrink-0" variant="secondary">
                     {unread.data?.count}
                   </Badge>
                 ) : null}
@@ -204,8 +246,8 @@ export function TenantShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-4 lg:px-8 backdrop-blur">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -254,8 +296,38 @@ export function TenantShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </div>
-        <SupportSessionBanner />
-        <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
+        <div className="shrink-0">
+          <SupportSessionBanner />
+        </div>
+        {showMfaRecommendation ? (
+          <section
+            role="region"
+            aria-label="Security recommendation"
+            className="flex flex-wrap items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 py-3 lg:px-8"
+          >
+            <ShieldCheck className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Add an extra layer of account protection</p>
+              <p className="text-sm text-muted-foreground">
+                Use an authenticator app to help keep your Analivo account secure.
+              </p>
+            </div>
+            <Button size="sm" asChild>
+              <AppLink to="/profile">Set up MFA</AppLink>
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Dismiss security recommendation"
+              onClick={dismissMfaRecommendation}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </section>
+        ) : null}
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   );

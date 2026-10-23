@@ -10,6 +10,9 @@ vi.mock("@/features/reports/api", () => ({
   create: (...args: unknown[]) => api.create(...args),
   update: (...args: unknown[]) => api.update(...args),
 }));
+vi.mock("@/features/datasets/api", () => ({
+  list: vi.fn().mockResolvedValue({ data: [{ _id: "d1", name: "Orders" }], meta: {} }),
+}));
 vi.mock("@/lib/auth/session", () => ({ useTenantSession: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -38,6 +41,7 @@ describe("ReportForm", () => {
     );
     const { onClose } = renderForm();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Weekly" } });
+    fireEvent.click(screen.getByLabelText(/advanced/i));
     fireEvent.change(screen.getByLabelText(/query json/i), {
       target: { value: '{"datasetId":"d1","dateRange":{"preset":"last_7_days"}}' },
     });
@@ -62,6 +66,7 @@ describe("ReportForm", () => {
     );
     const { onClose } = renderForm();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Weekly" } });
+    fireEvent.click(screen.getByLabelText(/advanced/i));
     fireEvent.change(screen.getByLabelText(/query json/i), {
       target: {
         value: '{"datasetId":"d1","dateRange":{"field":"order_date","preset":"last_7_days"}}',
@@ -81,6 +86,7 @@ describe("ReportForm", () => {
     api.create.mockResolvedValue({ _id: "r1" });
     const { onClose } = renderForm();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Weekly" } });
+    fireEvent.click(screen.getByLabelText(/advanced/i));
     fireEvent.change(screen.getByLabelText(/query json/i), {
       target: {
         value: '{"datasetId":"d1","dateRange":{"field":"order_date","preset":"last_7_days"}}',
@@ -91,5 +97,22 @@ describe("ReportForm", () => {
     const body = api.create.mock.calls[0]?.[0];
     expect(body.schedule.timezone).toBeNull();
     expect(body.query.dateRange).toEqual({ field: "order_date", preset: "last_7_days" });
+  });
+
+  it("builds the query from guided fields without raw JSON", async () => {
+    api.create.mockResolvedValue({ _id: "r1" });
+    const { onClose } = renderForm();
+    expect(screen.queryByLabelText(/query json/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Weekly" } });
+    await screen.findByRole("option", { name: "Orders" });
+    fireEvent.change(screen.getByLabelText("Dataset"), { target: { value: "d1" } });
+    fireEvent.change(screen.getByLabelText("Metric"), { target: { value: "sum" } });
+    fireEvent.change(screen.getByLabelText("Field"), { target: { value: "amount" } });
+    fireEvent.click(screen.getByRole("button", { name: /save report/i }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(api.create.mock.calls[0]?.[0].query).toEqual({
+      datasetId: "d1",
+      metrics: [{ op: "sum", field: "amount" }],
+    });
   });
 });

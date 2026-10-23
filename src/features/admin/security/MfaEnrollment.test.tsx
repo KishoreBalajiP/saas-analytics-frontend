@@ -46,9 +46,8 @@ describe("MfaEnrollment", () => {
 
     await user.click(screen.getByRole("button", { name: /set up authenticator/i }));
     expect(await screen.findByLabelText(/setup key/i)).toHaveTextContent("JBSW Y3DP EHPK 3PXP");
-    expect(
-      screen.getByRole("link", { name: /open it in your authenticator app/i }),
-    ).toHaveAttribute("href", expect.stringMatching(/^otpauth:\/\//));
+    expect(await screen.findByLabelText(/mfa enrollment qr code/i)).toContainHTML("<svg");
+    expect(screen.queryByRole("link", { name: /open it in your authenticator app/i })).toBeNull();
 
     await user.type(screen.getByLabelText(/6-digit code/i), "12a3456");
     await user.click(screen.getByRole("button", { name: /verify and turn on mfa/i }));

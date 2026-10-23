@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import * as analyticsApi from "@/features/analytics/api";
 import { ExportStatus } from "@/features/analytics/components/ExportStatus";
+import { recommendChartType, WIDGET_TYPE_LABELS } from "@/features/dashboards/chartRecommendation";
+import { AddToDashboardButton } from "@/features/dashboards/components/AddToDashboardDialog";
 import { ApiError } from "@/lib/api/client";
 import type { AnalyticsQueryParams, AnalyticsResult, QueryWindow } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -28,7 +30,18 @@ interface QueryResultsProps {
   canExport?: boolean;
 }
 
-type ChartType = "bar" | "line" | "area" | "pie";
+type ChartType = "bar" | "line" | "area" | "pie" | "doughnut" | "scatter";
+
+const CHART_TYPES: ChartType[] = ["bar", "line", "area", "pie", "doughnut", "scatter"];
+
+/** Default chart from the recommendation helper (kpi/table fall back to bar). */
+function defaultChart(
+  params: AnalyticsQueryParams | undefined,
+  rows: Array<Record<string, unknown>>,
+) {
+  const t = recommendChartType(params, rows);
+  return (CHART_TYPES as string[]).includes(t) ? (t as ChartType) : "bar";
+}
 
 function formatTimestamp(value?: string) {
   if (!value) return null;
@@ -93,7 +106,9 @@ export function QueryResults({
   canExport = false,
 }: QueryResultsProps) {
   const [view, setView] = useState<"table" | "chart">("table");
-  const [chartType, setChartType] = useState<ChartType>("bar");
+  // null = follow the recommendation for the current result; set once the user picks.
+  const [chosenChart, setChartType] = useState<ChartType | null>(null);
+  const chartType = chosenChart ?? defaultChart(lastParams, result?.rows ?? []);
   // The export being tracked (status polled until ready, then downloadable).
   const [exportId, setExportId] = useState<string | null>(null);
 
@@ -180,13 +195,24 @@ export function QueryResults({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bar">Bar</SelectItem>
-                <SelectItem value="line">Line</SelectItem>
-                <SelectItem value="area">Area</SelectItem>
-                <SelectItem value="pie">Pie</SelectItem>
+                {CHART_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {WIDGET_TYPE_LABELS[t]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
+
+          {lastParams ? (
+            <AddToDashboardButton
+              query={lastParams}
+              datasetId={lastParams.connectorIds?.length === 1 ? lastParams.connectorIds[0]! : ""}
+              rows={rows}
+              defaultTitle="Analytics result"
+              {...(view === "chart" ? { defaultType: chartType } : {})}
+            />
+          ) : null}
 
           {canExport && (
             <Select onValueChange={(v) => handleExport(v as "json" | "csv" | "xlsx")}>

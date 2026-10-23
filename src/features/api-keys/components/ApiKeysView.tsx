@@ -30,6 +30,7 @@ import {
 import * as apiKeysApi from "@/features/api-keys/api";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
+import { useFeature } from "@/features/billing/hooks";
 
 import { KeyUsagePanel } from "./KeyUsagePanel";
 
@@ -40,9 +41,15 @@ function date(value?: string | null) {
 export function ApiKeysView() {
   const { permissions } = useTenantSession();
   const canView = hasPermission(permissions, Permissions.API_KEYS_VIEW);
-  const canCreate = hasPermission(permissions, Permissions.API_KEYS_CREATE);
+  const apiAccess = useFeature("api_access");
+  // Plan entitlement: never offer creating a key the API would refuse.
+  const canCreate =
+    hasPermission(permissions, Permissions.API_KEYS_CREATE) &&
+    (!apiAccess.known || apiAccess.enabled);
   const canDelete = hasPermission(permissions, Permissions.API_KEYS_DELETE);
-  const canUpdate = hasPermission(permissions, Permissions.API_KEYS_UPDATE);
+  const canUpdate =
+    hasPermission(permissions, Permissions.API_KEYS_UPDATE) &&
+    (!apiAccess.known || apiAccess.enabled);
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const query = useQuery({

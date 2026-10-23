@@ -8,8 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 /**
- * One-time display of MFA recovery codes (roadmap 2.2). The server stores
- * only digests, so this is the only time the admin can see them: they must
+ * One-time display of MFA recovery codes. The server stores
+ * only digests, so this is the only time the user can see them: they must
  * confirm they saved them before continuing.
  */
 export function RecoveryCodesDisplay({
@@ -34,14 +34,13 @@ export function RecoveryCodesDisplay({
   };
 
   const download = () => {
-    const blob = new Blob(
-      [`Analivo admin portal recovery codes\nEach code works once.\n\n${text}\n`],
-      { type: "text/plain" },
-    );
+    const blob = new Blob([`Analivo recovery codes\nEach code works once.\n\n${text}\n`], {
+      type: "text/plain",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "analivo-admin-recovery-codes.txt";
+    link.download = "analivo-recovery-codes.txt";
     link.click();
     URL.revokeObjectURL(url);
   };

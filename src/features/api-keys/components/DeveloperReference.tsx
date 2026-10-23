@@ -7,6 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import * as apiKeysApi from "@/features/api-keys/api";
 
+const PLACEHOLDER_ORIGIN = "https://api.analivo.example";
+
+/** The API origin this deployment actually serves (mirrors lib/api/client). */
+export function apiOrigin(): string {
+  const configured = import.meta.env["VITE_API_BASE_URL"] as string | undefined;
+  if (configured) return configured.replace(/\/+$/, "");
+  if (import.meta.env.PROD && typeof window !== "undefined") return window.location.origin;
+  return "http://localhost:8080";
+}
+
+/** Replace the spec placeholder host so copied curl commands work here. */
+export function withRealBaseUrl(source: string, origin = apiOrigin()): string {
+  return source.split(PLACEHOLDER_ORIGIN).join(origin);
+}
+
 function CopyBlock({ text, label }: { text: string; label: string }) {
   return (
     <div className="relative">
@@ -76,7 +91,7 @@ export function DeveloperReference() {
               {(op["x-codeSamples"] ?? []).map((sample) => (
                 <CopyBlock
                   key={sample.lang}
-                  text={sample.source}
+                  text={withRealBaseUrl(sample.source)}
                   label={`Copy ${sample.lang} example for ${method.toUpperCase()} ${path}`}
                 />
               ))}

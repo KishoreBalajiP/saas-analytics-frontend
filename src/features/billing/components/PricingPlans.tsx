@@ -10,23 +10,30 @@
  * alone, never grants a plan.
  */
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, TableSkeleton } from "@/components/common/states";
+import { AppLink } from "@/components/common/AppLink";
 import * as billingApi from "@/features/billing/api";
-import type { BillingInterval, CatalogPlan, CheckoutSession } from "@/features/billing/api";
+import type {
+  BillingInterval,
+  CatalogPlan,
+  CheckoutSession,
+  TransactionStatus,
+} from "@/features/billing/api";
 import {
   formatMoney,
   loadRazorpayScript,
   providerModeText,
   waitForConfirmation,
 } from "@/features/billing/checkout";
-import { FEATURE_LABELS } from "@/lib/api/quota";
+import { featurePresentation } from "@/features/billing/featureCatalog";
 
 export type CheckoutUiPhase =
   | "idle"
@@ -50,6 +57,8 @@ function priceFor(plan: CatalogPlan, interval: BillingInterval) {
 export interface PricingPlansProps {
   tenantId: string;
   currentPlanId?: string | null;
+  pendingPlanId?: string | null;
+  pendingStatus?: TransactionStatus | null;
   /** Injected in tests; defaults to the real Razorpay Checkout. */
   openCheckout?: (session: CheckoutSession, handlers: CheckoutHandlers) => Promise<void>;
   /** Poll interval for the confirmation wait (ms). */
@@ -88,6 +97,8 @@ async function openRazorpayCheckout(session: CheckoutSession, handlers: Checkout
 export function PricingPlans({
   tenantId,
   currentPlanId = null,
+  pendingPlanId = null,
+  pendingStatus = null,
   openCheckout = openRazorpayCheckout,
   pollIntervalMs = 2000,
   pollTimeoutMs = 90000,
@@ -97,6 +108,18 @@ export function PricingPlans({
   const [phase, setPhase] = useState<CheckoutUiPhase>("idle");
   const [detail, setDetail] = useState<string | null>(null);
   const [pendingPlan, setPendingPlan] = useState<string | null>(null);
+  const freePlan = useMutation({
+    mutationFn: () => billingApi.changePlan(tenantId, { planId: "free" }),
+    onSuccess: (result) => {
+      toast.success(
+        result.scheduledChange
+          ? "Free plan scheduled for the end of the paid term"
+          : "Free plan selected",
+      );
+      refreshAll();
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Unable to select the Free plan"),
+  });
 
   const plans = useQuery({
     queryKey: ["billing", "plans", tenantId],
@@ -227,22 +250,25 @@ export function PricingPlans({
         {catalog.map((plan) => {
           const price = priceFor(plan, term);
           const current = plan.code === currentPlanId;
-          const features = Object.entries(plan.features).filter(
-            ([key, on]) => on && FEATURE_LABELS[key],
-          );
+          const pending = plan.code === pendingPlanId;
+          const features = Object.entries(plan.features).filter(([, on]) => on);
           return (
             <Card
               key={plan.code}
               data-testid={`plan-${plan.code}`}
-              className={current ? "border-primary" : ""}
+              className={`h-full ${current ? "border-primary" : ""}`}
             >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-base">
                   <span>{plan.displayName}</span>
-                  {current && <Badge variant="secondary">Current</Badge>}
+                  {current ? (
+                    <Badge variant="secondary">Current</Badge>
+                  ) : pendingPlanId === plan.code ? (
+                    <Badge variant="outline">Pending</Badge>
+                  ) : null}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
+              <CardContent className="flex flex-1 flex-col space-y-3 text-sm">
                 <p className="text-muted-foreground">{plan.description}</p>
                 <p className="text-xl font-semibold">
                   {plan.code === "free"
@@ -251,37 +277,63 @@ export function PricingPlans({
                       ? `${formatMoney(price.amountMinor, price.currency)} / ${INTERVAL_UNIT[term]}`
                       : "Price on request"}
                 </p>
-                {plan.trialDays > 0 && plan.code !== "free" && (
-                  <p className="text-muted-foreground text-xs">
-                    {plan.trialDays}-day trial for new workspaces
-                  </p>
-                )}
-                <ul className="space-y-1">
+                <ul className="flex-1 space-y-1">
                   {features.map(([key]) => (
                     <li key={key} className="flex items-center gap-1">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />{" "}
-                      {FEATURE_LABELS[key]}
+                      {featurePresentation(key).label}
                     </li>
                   ))}
                 </ul>
-                {plan.code !== "free" && (
+                {plan.code !== "free" &&
+                  plan.purchasable &&
+                  price &&
+                  !(pending && pendingStatus === "captured") && (
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={!checkout.enabled || !plan.purchasable || !price || busy || false}
+                      onClick={() => void start(plan.code)}
+                    >
+                      {busy && pendingPlan === plan.code ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Working…
+                        </>
+                      ) : pending && pendingStatus !== "captured" ? (
+                        "Continue payment"
+                      ) : current ? (
+                        `Renew ${INTERVAL_UNIT[term]}ly term`
+                      ) : (
+                        `Choose ${plan.displayName}`
+                      )}
+                    </Button>
+                  )}
+                {pending && pendingStatus === "captured" && (
+                  <p className="text-muted-foreground text-xs">
+                    Payment is being applied. Check the payment status above.
+                  </p>
+                )}
+                {plan.code === "free" && !current && (
                   <Button
                     size="sm"
-                    className="w-full"
-                    disabled={!checkout.enabled || !plan.purchasable || !price || busy}
-                    onClick={() => void start(plan.code)}
+                    className="mt-auto w-full"
+                    disabled={busy || freePlan.isPending}
+                    onClick={() => freePlan.mutate()}
                   >
-                    {busy && pendingPlan === plan.code ? (
-                      <>
-                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Working…
-                      </>
-                    ) : current ? (
-                      `Renew ${INTERVAL_UNIT[term]}ly term`
-                    ) : (
-                      `Buy ${INTERVAL_UNIT[term]}ly term`
-                    )}
+                    {freePlan.isPending ? "Updating…" : "Switch to Free"}
                   </Button>
                 )}
+                {plan.code !== "free" &&
+                  (!plan.purchasable || !price) &&
+                  (plan.code === "enterprise" ? (
+                    <Button asChild size="sm" variant="outline" className="mt-auto w-full">
+                      <AppLink to="/request-access">Contact sales</AppLink>
+                    </Button>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">
+                      Self-service checkout is not available for this plan.
+                    </p>
+                  ))}
               </CardContent>
             </Card>
           );

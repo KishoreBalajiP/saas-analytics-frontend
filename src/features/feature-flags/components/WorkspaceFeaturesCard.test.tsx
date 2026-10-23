@@ -26,6 +26,23 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.evaluate.mockResolvedValue({
     flags: { "analytics.realtime": true, "connectors.webhooks": false, "beta.custom": true },
+    features: [
+      {
+        key: "analytics.realtime",
+        name: "Realtime analytics",
+        description: "Live charts",
+        value: true,
+        reason: "all",
+      },
+      {
+        key: "connectors.webhooks",
+        name: "Webhook connectors",
+        description: "Outbound webhooks",
+        value: false,
+        reason: "not_in_allow_list",
+      },
+      { key: "beta.custom", name: "beta.custom", description: "", value: true, reason: "all" },
+    ],
   });
 });
 
@@ -36,8 +53,8 @@ describe("WorkspaceFeaturesCard", () => {
     expect(within(list).getByText("Realtime analytics")).toBeInTheDocument();
     expect(within(list).getByText("Webhook connectors")).toBeInTheDocument();
     expect(within(list).getByText("beta.custom")).toBeInTheDocument();
-    expect(within(list).getAllByText("On")).toHaveLength(2);
-    expect(within(list).getAllByText("Off")).toHaveLength(1);
+    expect(within(list).getAllByText("Enabled")).toHaveLength(2);
+    expect(within(list).getByText("Not enabled for this workspace")).toBeInTheDocument();
   });
 
   it("needs feature_flags.view", () => {

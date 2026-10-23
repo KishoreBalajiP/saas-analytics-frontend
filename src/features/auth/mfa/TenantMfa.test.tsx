@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   enrollTenantMfa: vi.fn(),
   verifyTenantMfa: vi.fn(),
   disableTenantMfa: vi.fn(),
+  stepUpTenant: vi.fn(),
+  regenerateTenantRecoveryCodes: vi.fn(),
   getWorkspaceSecurity: vi.fn(),
   updateWorkspaceSecurity: vi.fn(),
   workspaceSecurityKey: ["workspace", "security"],
@@ -22,6 +24,13 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth/session", () => ({ useTenantSession: () => session }));
 vi.mock("@/features/auth/api/tenantSecurity", () => api);
+vi.mock("@/components/common/AppLink", () => ({
+  AppLink: ({ to, children, ...props }: { to: string; children: ReactNode }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
+}));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import { TenantMfaCard } from "./TenantMfaCard";
@@ -48,7 +57,7 @@ describe("TenantMfaCard", () => {
       recoveryCodesRemaining: 1,
     });
     wrap(<TenantMfaCard />);
-    await user.click(screen.getByRole("button", { name: /set up authenticator/i }));
+    await user.click(screen.getByRole("button", { name: /set up mfa/i }));
     await user.type(await screen.findByLabelText(/6-digit code/i), "123456");
     await user.click(screen.getByRole("button", { name: /verify and turn on/i }));
     expect(await screen.findByText("AAAA-BBBB-CCCC-DDDD")).toBeInTheDocument();
@@ -67,18 +76,44 @@ describe("TenantMfaCard", () => {
       expect(api.disableTenantMfa).toHaveBeenCalledWith("pw", { code: "654321" }),
     );
   });
+
+  it("requires step-up before showing newly generated recovery codes", async () => {
+    const user = userEvent.setup();
+    session.me = { id: "u1", email: "u@x.io", mfa: { enabled: true, recoveryCodesRemaining: 9 } };
+    api.stepUpTenant.mockResolvedValue({ stepUpExpiresAt: new Date().toISOString() });
+    api.regenerateTenantRecoveryCodes.mockResolvedValue({
+      recoveryCodes: ["AAAA-BBBB-CCCC-DDDD"],
+      recoveryCodesRemaining: 1,
+      generatedAt: new Date().toISOString(),
+    });
+    const refetch = vi.fn();
+    session.refetch = refetch;
+    wrap(<TenantMfaCard />);
+    await user.click(screen.getByRole("button", { name: /generate new recovery codes/i }));
+    await user.type(screen.getByLabelText("Password"), "pw");
+    await user.type(screen.getByLabelText("Authenticator code"), "654321");
+    await user.click(screen.getByRole("button", { name: /verify identity/i }));
+    await waitFor(() => expect(api.stepUpTenant).toHaveBeenCalledWith("pw", { code: "654321" }));
+    await user.click(await screen.findByRole("button", { name: /^generate recovery codes$/i }));
+    expect(await screen.findByText("AAAA-BBBB-CCCC-DDDD")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /i saved my recovery codes/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
 });
 
 describe("WorkspaceSecurityCard", () => {
-  it("is hidden without security.view", () => {
+  it("keeps personal MFA available without workspace policy permission", () => {
+    session.me = { id: "u1", mfa: { enabled: false, required: false } };
     const { container } = wrap(<WorkspaceSecurityCard />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container).not.toBeEmptyDOMElement();
     expect(api.getWorkspaceSecurity).not.toHaveBeenCalled();
   });
 
   it("lets security.configure toggle the policy", async () => {
     const user = userEvent.setup();
     session.permissions = ["security.view", "security.configure"];
+    session.me = { id: "u1", mfa: { enabled: true, required: false } };
     api.getWorkspaceSecurity.mockResolvedValue({
       mfaRequired: false,
       members: { total: 2, mfaEnabled: 1 },
@@ -88,7 +123,11 @@ describe("WorkspaceSecurityCard", () => {
       members: { total: 2, mfaEnabled: 1 },
     });
     wrap(<WorkspaceSecurityCard />);
-    await user.click(await screen.findByRole("button", { name: "Require MFA" }));
+    await user.click(
+      await screen.findByRole("button", { name: /require mfa for all workspace members/i }),
+    );
+    expect(api.updateWorkspaceSecurity).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(api.updateWorkspaceSecurity).toHaveBeenCalledWith(true));
   });
 
@@ -99,7 +138,9 @@ describe("WorkspaceSecurityCard", () => {
       members: { total: 1, mfaEnabled: 1 },
     });
     wrap(<WorkspaceSecurityCard />);
-    expect(await screen.findByText(/1 of 1 members/)).toBeInTheDocument();
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(await screen.findByText("Required")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /require mfa for all workspace members/i }),
+    ).toBeNull();
   });
 });

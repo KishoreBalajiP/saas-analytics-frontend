@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 import type { FieldError } from "@/lib/api/types";
-import { describeUploadError } from "./connectorErrors";
+import { describeUploadError, formatValidationErrors } from "./connectorErrors";
 
 describe("describeUploadError", () => {
   it("explains a 413 FILE_TOO_LARGE with the server's limit", () => {
@@ -110,5 +110,14 @@ describe("describeUploadError", () => {
     expect(described.description).toBe(
       "Plan limit reached: your plan allows 1,000 stored rows and 1,200 are in use. Delete data you no longer need or upgrade your plan.",
     );
+  });
+});
+
+describe("formatValidationErrors", () => {
+  it("renders backend error objects as messages, not [object Object]", () => {
+    expect(
+      formatValidationErrors([{ field: "connection", message: "Could not connect" }, "bad"]),
+    ).toBe("Could not connect, bad");
+    expect(formatValidationErrors([])).toBe("unknown error");
   });
 });

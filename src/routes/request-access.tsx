@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { CheckCircle2, Clock3 } from "lucide-react";
 import { AppLink } from "@/components/common/AppLink";
+import { PublicAuthLayout } from "@/components/common/PublicAuthLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,8 +34,8 @@ function AccessRequestPage() {
 
   if (mutation.isSuccess) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-        <Card className="w-full max-w-lg">
+      <PublicAuthLayout contentClassName="max-w-2xl">
+        <Card className="w-full max-w-2xl">
           <CardHeader>
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <CheckCircle2 />
@@ -61,7 +62,7 @@ function AccessRequestPage() {
             </Button>
           </CardContent>
         </Card>
-      </main>
+      </PublicAuthLayout>
     );
   }
 
@@ -77,8 +78,8 @@ function AccessRequestPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <Card className="w-full max-w-lg">
+    <PublicAuthLayout contentClassName="max-w-2xl">
+      <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>Request workspace access</CardTitle>
           <CardDescription>
@@ -152,6 +153,6 @@ function AccessRequestPage() {
           </form>
         </CardContent>
       </Card>
-    </main>
+    </PublicAuthLayout>
   );
 }

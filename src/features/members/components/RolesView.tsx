@@ -50,6 +50,11 @@ export function RolesView() {
     queryFn: () => membersApi.listRoles(),
     enabled: canView,
   });
+  const catalogueQuery = useQuery({
+    queryKey: [...membersApi.membersKeys.catalogue],
+    queryFn: () => membersApi.listPermissionCatalogue(),
+    enabled: canView,
+  });
 
   if (!canView) return <ErrorState error={{ statusCode: 403 }} resource="Roles" />;
   if (rolesQuery.isLoading) return <TableSkeleton rows={4} cols={3} />;
@@ -59,6 +64,7 @@ export function RolesView() {
     );
 
   const roles = rolesQuery.data ?? [];
+  const permissionByKey = new Map((catalogueQuery.data ?? []).map((entry) => [entry.key, entry]));
   return (
     <div className="space-y-4">
       {canCreate ? (
@@ -72,7 +78,12 @@ export function RolesView() {
       {roles.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {roles.map((role) => (
-            <RoleCard key={role.id} role={role} onEdit={() => setEditing(role)} />
+            <RoleCard
+              key={role.id}
+              role={role}
+              permissionByKey={permissionByKey}
+              onEdit={() => setEditing(role)}
+            />
           ))}
         </div>
       ) : (
@@ -82,7 +93,15 @@ export function RolesView() {
   );
 }
 
-function RoleCard({ role, onEdit }: { role: WorkspaceRole; onEdit: () => void }) {
+function RoleCard({
+  role,
+  permissionByKey,
+  onEdit,
+}: {
+  role: WorkspaceRole;
+  permissionByKey: Map<string, PermissionCatalogueEntry>;
+  onEdit: () => void;
+}) {
   const { permissions } = useTenantSession();
   const canUpdate = hasPermission(permissions, Permissions.ROLES_UPDATE) && role.editable;
   const canDelete = hasPermission(permissions, Permissions.ROLES_DELETE) && role.editable;
@@ -119,13 +138,19 @@ function RoleCard({ role, onEdit }: { role: WorkspaceRole; onEdit: () => void })
             {role.permissions.length} permissions
           </summary>
           <ul className="mt-2 flex flex-wrap gap-1">
-            {role.permissions.map((key) => (
-              <li key={key}>
-                <Badge variant="outline" className="font-mono text-[11px]">
-                  {key}
-                </Badge>
-              </li>
-            ))}
+            {role.permissions.map((key) => {
+              const entry = permissionByKey.get(key);
+              return (
+                <li key={key} className="rounded-md border p-2">
+                  <div className="font-medium text-sm">
+                    {entry ? `${entry.module} · ${entry.action}` : key}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {entry?.description || "Permission granted by this role."}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </details>
         {canUpdate || canDelete ? (

@@ -454,6 +454,24 @@ async function parse<T>(response: Response): Promise<ApiResponse<T>> {
   }
 }
 
+/**
+ * 401 codes that are NOT about the caller's portal session (embed tokens,
+ * webhook signatures, step-up/MFA prompts). Everything else is treated as a
+ * genuine authentication failure.
+ */
+const NON_SESSION_401_CODES = new Set([
+  "MFA_REQUIRED",
+  "EMBED_TOKEN_INVALID",
+  "EMBED_SESSION_INVALID",
+  "INVALID_API_KEY",
+  "STEP_UP_REQUIRED",
+  "REAUTH_FAILED",
+]);
+
+function isSessionEndingCode(code: string | undefined) {
+  return !code || !NON_SESSION_401_CODES.has(code);
+}
+
 export async function requestFull<T>(
   path: string,
   requestOptions: RequestOptions = {},
@@ -463,21 +481,31 @@ export async function requestFull<T>(
     requestOptions.method && requestOptions.method !== "GET" && !requestOptions.idempotencyKey
       ? { ...requestOptions, idempotencyKey: uuid() }
       : requestOptions;
+  const audience = options.audience ?? "tenant";
+  // The token this request was sent with: a 401 only ends the session when
+  // it rejected the CURRENT token (not one a concurrent refresh replaced).
+  let sentToken = audience !== "public" ? tokens[audience] : null;
   let response = await rawRequest(path, options);
 
-  const audience = options.audience ?? "tenant";
   if (
     response.status === 401 &&
     audience !== "public" &&
     !options.noRefresh &&
-    !sessionAbsent[audience] &&
     !path.includes("/login") &&
     !path.includes("/refresh")
   ) {
-    const refreshed = await refreshSession(audience);
-    if (refreshed) {
-      // Retry exactly once.
+    if (tokens[audience] && tokens[audience] !== sentToken) {
+      // Another request already refreshed the session while this one was in
+      // flight: retry with the new token instead of refreshing again.
+      sentToken = tokens[audience];
       response = await rawRequest(path, { ...options, noRefresh: true });
+    } else if (!sessionAbsent[audience]) {
+      const refreshed = await refreshSession(audience);
+      if (refreshed) {
+        // Retry exactly once.
+        sentToken = tokens[audience];
+        response = await rawRequest(path, { ...options, noRefresh: true });
+      }
     }
   }
 
@@ -489,7 +517,14 @@ export async function requestFull<T>(
       code?: string;
       errors?: FieldError[];
     };
-    if (response.status === 401 && audience !== "public") setAccessToken(audience, null);
+    if (
+      response.status === 401 &&
+      audience !== "public" &&
+      isSessionEndingCode(err?.code) &&
+      tokens[audience] === sentToken
+    ) {
+      setAccessToken(audience, null);
+    }
     throw emitApiError(
       new ApiError(
         err?.message || response.statusText || "Request failed",

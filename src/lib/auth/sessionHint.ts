@@ -6,9 +6,8 @@
  * the browser refuses that cookie (third-party-cookie blocking in Safari,
  * Brave or private windows when the API is on another site), the next page
  * load cannot restore the session and the server reports
- * `SESSION_COOKIE_MISSING`. The hint lets the UI tell that case ("your
- * browser blocked the sign-in cookie") apart from a session that simply
- * ended. It stores only a timestamp.
+ * `SESSION_COOKIE_MISSING`. The hint lets session diagnostics distinguish
+ * that case from a session that simply ended. It stores only a timestamp.
  */
 
 import type { PortalAudience } from "./refreshCoordinator";

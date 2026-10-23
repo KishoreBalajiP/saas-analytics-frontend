@@ -91,3 +91,13 @@ export function describeUploadError(
     description: error instanceof Error ? error.message : "Something went wrong. Try again.",
   };
 }
+
+/** Backend validation errors are `{ field, message }` objects; render them as text. */
+export function formatValidationErrors(
+  errors?: Array<string | { field?: string; message?: string }>,
+): string {
+  if (!errors || errors.length === 0) return "unknown error";
+  return errors
+    .map((e) => (typeof e === "string" ? e : (e?.message ?? e?.field ?? "invalid")))
+    .join(", ");
+}

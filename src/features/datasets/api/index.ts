@@ -88,10 +88,11 @@ export function remove(connectorId: string) {
 }
 
 export function validate(connectorId: string) {
-  return request<{ valid: boolean; errors?: string[]; connector?: Connector }>(
-    `/connectors/${connectorId}/validate`,
-    { method: "POST" },
-  );
+  return request<{
+    valid: boolean;
+    errors?: Array<string | { field?: string; message?: string }>;
+    connector?: Connector;
+  }>(`/connectors/${connectorId}/validate`, { method: "POST" });
 }
 
 export function listRows(connectorId: string, query: Query = {}) {
@@ -155,4 +156,25 @@ export interface DatasetSchema {
 
 export function getSchema(connectorId: string) {
   return request<DatasetSchema | null>(`/connectors/${connectorId}/schema`);
+}
+
+// datasets: re-profile a dataset's schema (POST /connectors/:id/schema/refresh).
+export function refreshSchema(connectorId: string) {
+  return request<DatasetSchema | null>(`/connectors/${connectorId}/schema/refresh`, {
+    method: "POST",
+  });
+}
+
+/** MongoDB source discovery (GET /connectors/:id/discover). */
+export interface MongoDiscovery {
+  databases: string[];
+  /** False when the user lacks listDatabases; only the configured DB is shown. */
+  databasesListed: boolean;
+  database: string | null;
+  collections: { name: string; type: "collection" | "view" }[];
+}
+
+export function discoverMongo(connectorId: string, database?: string) {
+  const qs = database ? `?database=${encodeURIComponent(database)}` : "";
+  return request<MongoDiscovery>(`/connectors/${connectorId}/discover${qs}`);
 }

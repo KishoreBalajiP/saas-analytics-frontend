@@ -16,8 +16,10 @@ export const supportAccessKeys = {
 };
 
 /** GET /workspace/support-access (requires `settings.view`). */
-export function getWorkspaceSupportAccess() {
-  return request<WorkspaceSupportAccess>("/workspace/support-access");
+export function getWorkspaceSupportAccess(query?: Query) {
+  return query
+    ? request<WorkspaceSupportAccess>("/workspace/support-access", { query })
+    : request<WorkspaceSupportAccess>("/workspace/support-access");
 }
 
 /** GET /workspace/support-access/activity (requires `settings.view`). */

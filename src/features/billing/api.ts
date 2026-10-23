@@ -222,7 +222,7 @@ export interface CheckoutSession {
 }
 
 export type TransactionStatus =
-  "pending" | "authorized" | "captured" | "failed" | "refunded" | "expired";
+  "pending" | "authorized" | "captured" | "failed" | "refunded" | "expired" | "cancelled";
 
 export interface BillingTransaction {
   id: string;
@@ -247,7 +247,13 @@ export interface BillingTransaction {
 
 /** Where a checkout stands; `confirmed` once the paid term is applied. */
 export type CheckoutPhase =
-  "pending_confirmation" | "applying" | "confirmed" | "failed" | "expired" | "refunded";
+  | "pending_confirmation"
+  | "applying"
+  | "confirmed"
+  | "failed"
+  | "expired"
+  | "cancelled"
+  | "refunded";
 
 export interface CheckoutStatus {
   phase: CheckoutPhase;
@@ -296,6 +302,13 @@ export function getCheckoutStatus(tenantId: string, orderId: string) {
   );
 }
 
+export function cancelCheckout(tenantId: string, orderId: string) {
+  return request<BillingTransaction>(
+    `/tenants/${tenantId}/subscription/checkout/${encodeURIComponent(orderId)}/cancel`,
+    { audience, method: "POST" },
+  );
+}
+
 export function listTransactions(tenantId: string, query: Query = {}) {
   return requestPaged<BillingTransaction>(`/tenants/${tenantId}/subscription/transactions`, {
     audience,
@@ -304,7 +317,7 @@ export function listTransactions(tenantId: string, query: Query = {}) {
 }
 
 export function getSubscriptionTimeline(tenantId: string, query: Query = {}) {
-  return request<SubscriptionTimelineEntry[]>(`/tenants/${tenantId}/subscription/timeline`, {
+  return requestPaged<SubscriptionTimelineEntry>(`/tenants/${tenantId}/subscription/timeline`, {
     audience,
     query,
   });

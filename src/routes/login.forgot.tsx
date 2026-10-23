@@ -25,7 +25,7 @@ function ForgotPasswordPage() {
   });
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-xl">
       <CardHeader>
         <CardTitle>Reset your password</CardTitle>
         <CardDescription>

@@ -7,8 +7,13 @@ const api = vi.hoisted(() => ({
   approve: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  archive: vi.fn(),
 }));
 vi.mock("@/features/metrics/api", () => api);
+const datasets = vi.hoisted(() => ({ list: vi.fn() }));
+vi.mock("@/features/datasets/api", () => datasets);
+const analytics = vi.hoisted(() => ({ runQuery: vi.fn() }));
+vi.mock("@/features/analytics/api", () => analytics);
 const session = vi.hoisted(() => ({ useTenantSession: vi.fn() }));
 vi.mock("@/lib/auth/session", () => session);
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -45,6 +50,7 @@ beforeEach(() => {
   api.list.mockResolvedValue({ data: [draft], meta: {} });
   api.approve.mockResolvedValue(draft);
   api.update.mockResolvedValue(draft);
+  datasets.list.mockResolvedValue({ data: [{ _id: "c", name: "Orders" }], meta: {} });
 });
 
 describe("MetricsCatalogue", () => {
@@ -79,5 +85,69 @@ describe("MetricPicker", () => {
     fireEvent.change(screen.getByLabelText("Approved metric"), { target: { value: "revenue" } });
     fireEvent.click(screen.getByRole("button", { name: "Add metric" }));
     expect(onPick).toHaveBeenCalledWith("metric:revenue");
+  });
+});
+
+describe("MetricsCatalogue lifecycle", () => {
+  it("archives a metric after confirmation and hides Edit for ratio metrics", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    api.archive.mockResolvedValue({});
+    api.list.mockResolvedValue({
+      data: [draft, { ...draft, id: "2", key: "conv", label: "Conversion", aggregation: "ratio" }],
+      meta: {},
+    });
+    renderCatalogue(["metrics.view", "metrics.manage"]);
+    expect(await screen.findByText("Conversion")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+    fireEvent.click(screen.getAllByRole("button", { name: "Archive" })[0]!);
+    await waitFor(() => expect(api.archive).toHaveBeenCalledWith("revenue"));
+  });
+});
+
+describe("MetricForm preview", () => {
+  it("picks a dataset from a dropdown and previews the result via the analytics API", async () => {
+    analytics.runQuery.mockResolvedValue({ result: { rows: [{ value: 42 }] } });
+    renderCatalogue(["metrics.view", "metrics.manage"]);
+    fireEvent.click(await screen.findByRole("button", { name: "New metric" }));
+    expect(await screen.findByRole("option", { name: "Orders" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Dataset"), { target: { value: "c" } });
+    fireEvent.change(screen.getByLabelText("Field"), { target: { value: "amount" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview result" }));
+    await waitFor(() => expect(screen.getByTestId("metric-preview")).toHaveTextContent("42"));
+    expect(analytics.runQuery.mock.calls[0]?.[0]).toMatchObject({
+      connectorIds: ["c"],
+      metrics: [{ op: "sum", field: "amount" }],
+    });
+  });
+});
+
+describe("MetricForm saved filters", () => {
+  it("keeps filters the guided editor can't show, read-only, when saving", async () => {
+    const odd = [
+      { field: "amount", op: "eq", value: 5 },
+      { field: "tier", op: "in", value: [1, 2] },
+    ];
+    api.list.mockResolvedValue({ data: [{ ...draft, filters: odd }], meta: {} });
+    renderCatalogue(["metrics.view", "metrics.manage"]);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(screen.getByTestId("kept-filters")).toHaveTextContent(/kept unchanged/);
+    expect(
+      screen.getByRole("button", { name: /Reset and use guided filters/ }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0]?.[1].filters).toEqual(odd);
+  });
+
+  it("round-trips guided filters, including 'is one of' values with commas", async () => {
+    const filters = [{ field: "company", op: "in", value: ["Acme, Inc", 'Say "hi"', "EU"] }];
+    api.list.mockResolvedValue({ data: [{ ...draft, filters }], meta: {} });
+    renderCatalogue(["metrics.view", "metrics.manage"]);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(screen.queryByTestId("kept-filters")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Filter 1 value")).toHaveValue('"Acme, Inc", "Say ""hi""", EU');
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0]?.[1].filters).toEqual(filters);
   });
 });

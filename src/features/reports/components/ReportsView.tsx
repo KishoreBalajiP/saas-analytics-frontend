@@ -28,6 +28,21 @@ import {
   BrokenDependencyState,
 } from "@/features/datasets/components/BrokenDependency";
 import { isBroken } from "@/features/datasets/lib/brokenDependency";
+import {
+  DATE_PRESET_OPTIONS,
+  EMPTY_DATE_RANGE,
+  dateRangeFromDraft,
+  draftFromDateRange,
+  validateDateRangeDraft,
+  type DateRangeDraft,
+} from "@/features/analytics/dateRange";
+import {
+  FiltersEditor,
+  draftsFromFilters,
+  filtersFromDrafts,
+  validateFilterDrafts,
+  type FilterDraft,
+} from "@/features/metrics/components/FiltersEditor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +56,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import * as reportsApi from "@/features/reports/api";
+import * as connectorsApi from "@/features/datasets/api";
 import type { PaginationMeta, Report, ReportRun } from "@/lib/api/types";
 import { errorMessage, isQuotaExceeded } from "@/lib/api/quota";
 // delivery: roadmap 3.4
@@ -326,12 +342,12 @@ function ReportSummary({ report, canExport }: { report: Report; canExport: boole
             />
           ) : null}
           <p>{report.description || "No description."}</p>
-          <p>
+          <div>
             Status:{" "}
             <Badge variant="secondary" className="capitalize">
               {report.status ?? "draft"}
             </Badge>
-          </p>
+          </div>
           <p>
             Format: <span className="uppercase">{report.format}</span>
           </p>
@@ -470,6 +486,70 @@ export function RunHistory({
   );
 }
 
+const GUIDED_OPS = ["count", "sum", "avg", "min", "max", "count_distinct"];
+
+interface GuidedQuery {
+  datasetId: string;
+  op: string;
+  field: string;
+  groupBy: string;
+  /** Guided date range (empty preset = no date filter). */
+  dateRange?: DateRangeDraft;
+  /** Guided filters (all must match). */
+  filters?: FilterDraft[];
+}
+
+export function buildGuidedQuery(g: GuidedQuery) {
+  const dateRange = g.dateRange ? dateRangeFromDraft(g.dateRange) : undefined;
+  const filters = g.filters ? filtersFromDrafts(g.filters) : [];
+  return {
+    datasetId: g.datasetId,
+    metrics: [g.field ? { op: g.op, field: g.field } : { op: g.op }],
+    ...(g.groupBy ? { groupBy: [g.groupBy] } : {}),
+    ...(filters.length ? { filters } : {}),
+    ...(dateRange ? { dateRange } : {}),
+  } as unknown as import("@/lib/api/types").AnalyticsQueryParams;
+}
+
+/** Guided fields for a stored query, or null when it needs the advanced editor. */
+export function guidedFromQuery(q: unknown): GuidedQuery | null {
+  if (!q || typeof q !== "object") return null;
+  const o = q as Record<string, unknown>;
+  const keys = Object.keys(o).filter(
+    (k) =>
+      !(
+        k === "groupBy" ||
+        k === "metrics" ||
+        k === "datasetId" ||
+        k === "filters" ||
+        k === "dateRange" ||
+        (k === "filtersOp" && o[k] === "and")
+      ),
+  );
+  const metrics = o["metrics"] as Array<{ op?: string; field?: string }> | undefined;
+  const groupBy = o["groupBy"] as unknown[] | undefined;
+  if (keys.length || typeof o["datasetId"] !== "string") return null;
+  if (!Array.isArray(metrics) || metrics.length !== 1 || !metrics[0]?.op) return null;
+  if (Object.keys(metrics[0]).some((k) => k !== "op" && k !== "field")) return null;
+  if (groupBy && (groupBy.length > 1 || typeof groupBy[0] !== "string")) return null;
+  const filters = draftsFromFilters(o["filters"]);
+  if (!filters) return null;
+  let dateRange: DateRangeDraft | undefined;
+  if (o["dateRange"] !== undefined && o["dateRange"] !== null) {
+    dateRange = draftFromDateRange(o["dateRange"]);
+    if (!dateRange.preset || !dateRange.field) return null;
+  }
+  const field = metrics[0].field ?? "";
+  return {
+    datasetId: o["datasetId"] as string,
+    op: metrics[0].op,
+    field,
+    groupBy: (groupBy?.[0] as string) ?? "",
+    ...(filters.length ? { filters } : {}),
+    ...(dateRange ? { dateRange } : {}),
+  };
+}
+
 export function ReportForm({ report, onClose }: { report?: Report; onClose: () => void }) {
   const client = useQueryClient();
   const [name, setName] = useState(report?.name ?? "");
@@ -480,6 +560,30 @@ export function ReportForm({ report, onClose }: { report?: Report; onClose: () =
   const [queryJson, setQueryJson] = useState(
     report?.query ? JSON.stringify(report.query, null, 2) : "{}",
   );
+  // Guided query builder; raw JSON only behind the Advanced toggle.
+  const guidedInit = guidedFromQuery(report?.query);
+  const [advanced, setAdvanced] = useState(Boolean(report?.query) && !guidedInit);
+  const [gDataset, setGDataset] = useState(guidedInit?.datasetId ?? "");
+  const [gOp, setGOp] = useState(guidedInit?.op ?? "count");
+  const [gField, setGField] = useState(guidedInit?.field ?? "");
+  const [gGroupBy, setGGroupBy] = useState(guidedInit?.groupBy ?? "");
+  const [gDateRange, setGDateRange] = useState<DateRangeDraft>(
+    guidedInit?.dateRange ?? { ...EMPTY_DATE_RANGE },
+  );
+  const [gFilters, setGFilters] = useState<FilterDraft[]>(guidedInit?.filters ?? []);
+  const guidedNow = (): GuidedQuery => ({
+    datasetId: gDataset,
+    op: gOp,
+    field: gField.trim(),
+    groupBy: gGroupBy.trim(),
+    dateRange: gDateRange,
+    filters: gFilters,
+  });
+  const connectorsQuery = useQuery({
+    queryKey: ["connectors", "list", { limit: 200 }],
+    queryFn: () => connectorsApi.list({ limit: 200 }),
+    enabled: source === "query" && !advanced,
+  });
   const [enabled, setEnabled] = useState(report?.schedule?.enabled ?? false);
   const [cron, setCron] = useState(report?.schedule?.cron ?? "0 8 * * 1");
   // Empty = run in the workspace time zone (Settings).
@@ -500,10 +604,20 @@ export function ReportForm({ report, onClose }: { report?: Report; onClose: () =
   const mutation = useMutation({
     mutationFn: async () => {
       let query: unknown;
-      try {
-        query = JSON.parse(queryJson);
-      } catch {
-        throw new Error("Query must be valid JSON.");
+      if (source === "query" && !advanced) {
+        if (!gDataset) throw new Error("Choose a dataset.");
+        if (gOp !== "count" && !gField.trim()) throw new Error("Choose a field for the metric.");
+        const dateIssue = validateDateRangeDraft(gDateRange)[0];
+        if (dateIssue) throw new Error(dateIssue.message);
+        const filterIssue = validateFilterDrafts(gFilters)[0];
+        if (filterIssue) throw new Error(filterIssue);
+        query = buildGuidedQuery(guidedNow());
+      } else {
+        try {
+          query = JSON.parse(queryJson);
+        } catch {
+          throw new Error("Query must be valid JSON.");
+        }
       }
       if (!name.trim()) throw new Error("Name is required.");
       if (source === "widget" && (!dashboardId || !widgetId))
@@ -589,6 +703,118 @@ export function ReportForm({ report, onClose }: { report?: Report; onClose: () =
                 <Input value={widgetId} onChange={(e) => setWidgetId(e.target.value)} />
               </Label>
             </>
+          ) : !advanced ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Label>
+                Dataset
+                <select
+                  aria-label="Dataset"
+                  className="mt-1 block w-full rounded-md border bg-background p-2 text-sm"
+                  value={gDataset}
+                  onChange={(e) => setGDataset(e.target.value)}
+                >
+                  <option value="">
+                    {connectorsQuery.isLoading ? "Loading…" : "Select a dataset"}
+                  </option>
+                  {(connectorsQuery.data?.data ?? []).map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Label>
+              <Label>
+                Metric
+                <select
+                  aria-label="Metric"
+                  className="mt-1 block w-full rounded-md border bg-background p-2 text-sm"
+                  value={gOp}
+                  onChange={(e) => setGOp(e.target.value)}
+                >
+                  {GUIDED_OPS.map((op) => (
+                    <option key={op} value={op}>
+                      {op}
+                    </option>
+                  ))}
+                </select>
+              </Label>
+              <Label>
+                Field {gOp === "count" ? "(optional)" : ""}
+                <Input
+                  aria-label="Field"
+                  value={gField}
+                  onChange={(e) => setGField(e.target.value)}
+                />
+              </Label>
+              <Label>
+                Group by column (optional)
+                <Input
+                  aria-label="Group by"
+                  value={gGroupBy}
+                  onChange={(e) => setGGroupBy(e.target.value)}
+                />
+              </Label>
+              <fieldset className="space-y-2 sm:col-span-2">
+                <legend className="text-sm font-medium">Date range (optional)</legend>
+                <p className="text-xs text-muted-foreground">
+                  Only include rows whose date column falls in this period. Relative periods such as
+                  “Last 30 days” move forward each time the report runs.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    aria-label="Date range period"
+                    className="rounded-md border bg-background p-2 text-sm"
+                    value={gDateRange.preset}
+                    onChange={(e) =>
+                      setGDateRange({
+                        ...gDateRange,
+                        preset: e.target.value as DateRangeDraft["preset"],
+                      })
+                    }
+                  >
+                    <option value="">All time (no date filter)</option>
+                    {DATE_PRESET_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {gDateRange.preset ? (
+                    <Input
+                      aria-label="Date column"
+                      placeholder="Date column, e.g. order_date"
+                      className="w-48"
+                      value={gDateRange.field}
+                      onChange={(e) => setGDateRange({ ...gDateRange, field: e.target.value })}
+                    />
+                  ) : null}
+                  {gDateRange.preset === "custom" ? (
+                    <>
+                      <Input
+                        type="date"
+                        aria-label="From date"
+                        className="w-40"
+                        value={gDateRange.from}
+                        onChange={(e) => setGDateRange({ ...gDateRange, from: e.target.value })}
+                      />
+                      <Input
+                        type="date"
+                        aria-label="To date"
+                        className="w-40"
+                        value={gDateRange.to}
+                        onChange={(e) => setGDateRange({ ...gDateRange, to: e.target.value })}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              </fieldset>
+              <div className="sm:col-span-2">
+                <FiltersEditor idPrefix="report-filter" value={gFilters} onChange={setGFilters} />
+              </div>
+              {connectorsQuery.isError ? (
+                <p className="text-sm text-destructive">Unable to load datasets.</p>
+              ) : null}
+            </div>
           ) : (
             <Label>
               Query JSON
@@ -599,6 +825,20 @@ export function ReportForm({ report, onClose }: { report?: Report; onClose: () =
               />
             </Label>
           )}
+          {source === "query" ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={advanced}
+                onChange={(e) => {
+                  if (e.target.checked && gDataset)
+                    setQueryJson(JSON.stringify(buildGuidedQuery(guidedNow()), null, 2));
+                  setAdvanced(e.target.checked);
+                }}
+              />{" "}
+              Advanced mode (raw query editor)
+            </label>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-3">
             <Label>
               Format

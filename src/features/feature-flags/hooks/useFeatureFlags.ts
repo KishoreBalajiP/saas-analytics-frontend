@@ -31,9 +31,20 @@ export function useFeatureFlags() {
     retry: false,
   });
   const flags = (allowed && query.data?.flags) || EMPTY;
+  const features = allowed
+    ? (query.data?.features ??
+      Object.entries(flags).map(([key, value]) => ({
+        key,
+        name: key,
+        description: "",
+        value,
+        reason: value ? "enabled" : "not_available",
+      })))
+    : [];
   const isEnabled = useCallback((key: string) => flags[key] === true, [flags]);
   return {
     flags,
+    features,
     isEnabled,
     isLoading: allowed && query.isLoading,
     isError: allowed && query.isError,

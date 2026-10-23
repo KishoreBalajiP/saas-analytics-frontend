@@ -116,8 +116,8 @@ function AnalyticsContent() {
         crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Analytics" }]}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1.5fr]">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="xl:col-span-1">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 xl:col-span-1">
           <TabsList>
             <TabsTrigger value="query">Builder</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
@@ -142,7 +142,7 @@ function AnalyticsContent() {
           </TabsContent>
         </Tabs>
 
-        <div className="xl:col-span-1">
+        <div className="min-w-0 xl:col-span-1">
           <div className="rounded-lg border border-border bg-card p-4">
             <h3 className="mb-4 text-sm font-semibold">Results</h3>
             <QueryResults

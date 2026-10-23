@@ -18,7 +18,7 @@ const FLAG_LABELS: Record<string, string> = {
  * workspace. Rollouts are managed by the platform team.
  */
 export function WorkspaceFeaturesCard() {
-  const { flags, allowed, isLoading, isError } = useFeatureFlags();
+  const { features, allowed, isLoading, isError } = useFeatureFlags();
 
   if (!allowed) return <ErrorState error={{ statusCode: 403 }} resource="Workspace features" />;
   if (isLoading) return <TableSkeleton rows={2} cols={2} />;
@@ -30,7 +30,7 @@ export function WorkspaceFeaturesCard() {
       />
     );
   }
-  const entries = Object.entries(flags).sort(([a], [b]) => a.localeCompare(b));
+  const entries = [...features].sort((a, b) => a.key.localeCompare(b.key));
 
   return (
     <Card>
@@ -48,17 +48,26 @@ export function WorkspaceFeaturesCard() {
           />
         ) : (
           <ul className="divide-y divide-border" aria-label="Workspace features">
-            {entries.map(([key, on]) => (
-              <li key={key} className="flex items-center justify-between gap-3 py-2 text-sm">
+            {entries.map((feature) => (
+              <li key={feature.key} className="flex items-start justify-between gap-3 py-2 text-sm">
                 <span className="flex items-center gap-2">
-                  {on ? (
+                  {feature.value ? (
                     <CheckCircle2 className="h-4 w-4 text-success" />
                   ) : (
                     <CircleSlash className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <span>{FLAG_LABELS[key] ?? key}</span>
+                  <span>
+                    <span className="block">
+                      {FLAG_LABELS[feature.key] ?? feature.name ?? feature.key}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {feature.description || featureReason(feature.reason)}
+                    </span>
+                  </span>
                 </span>
-                <Badge variant={on ? "default" : "outline"}>{on ? "On" : "Off"}</Badge>
+                <Badge variant={feature.value ? "default" : "outline"}>
+                  {feature.value ? "Enabled" : featureReason(feature.reason)}
+                </Badge>
               </li>
             ))}
           </ul>
@@ -66,4 +75,29 @@ export function WorkspaceFeaturesCard() {
       </CardContent>
     </Card>
   );
+}
+
+function featureReason(reason: string) {
+  switch (reason) {
+    case "disabled":
+      return "Disabled by the platform";
+    case "not_in_allow_list":
+      return "Not enabled for this workspace";
+    case "not_in_plan":
+      return "Not included in the current plan";
+    case "requires_configuration":
+      return "Requires configuration";
+    case "disabled_by_platform":
+      return "Disabled by the platform";
+    case "disabled_by_workspace":
+      return "Disabled for this workspace";
+    case "percentage_out":
+      return "Not included in this rollout";
+    case "no_tenant":
+      return "Workspace context required";
+    case "unsupported_strategy":
+      return "Unavailable";
+    default:
+      return "Not available";
+  }
 }

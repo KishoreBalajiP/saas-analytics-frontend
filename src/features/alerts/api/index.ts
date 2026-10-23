@@ -35,6 +35,7 @@ export interface AlertInput {
   query?: AnalyticsQueryParams;
   schedule?: { cron?: string; timezone?: string | null };
   cooldownMinutes?: number;
+  repeatMode?: "once_per_incident" | "after_cooldown";
   enabled?: boolean;
   notification?: {
     channels?: Array<"email" | "in_app">;

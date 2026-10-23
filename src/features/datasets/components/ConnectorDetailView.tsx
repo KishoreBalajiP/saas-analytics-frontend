@@ -18,7 +18,11 @@ import { toast } from "sonner";
 
 import { FileUploadZone } from "@/features/datasets/components/FileUploadZone";
 import { WebhookSigningInstructions } from "@/features/datasets/components/WebhookSigningInstructions";
-import { describeUploadError, type DescribedError } from "@/features/datasets/lib/connectorErrors";
+import {
+  describeUploadError,
+  formatValidationErrors,
+  type DescribedError,
+} from "@/features/datasets/lib/connectorErrors";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
 import { AppLink } from "@/components/common/AppLink";
@@ -42,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as connectorsApi from "@/features/datasets/api";
 import { SyncHistory, SyncStateSummary } from "@/features/datasets/components/SyncHistory";
 import { SchemaView } from "@/features/datasets/components/SchemaView";
+import { MongoSourcePicker } from "@/features/datasets/components/MongoSourcePicker";
 // rls: dataset access, row rules and preview-as-member.
 import { DatasetAccessPanel } from "@/features/datasets/access/DatasetAccessPanel";
 import { SYNC_POLL_INTERVAL_MS, isSyncInFlight, syncErrorMessage } from "@/features/datasets/sync";
@@ -200,7 +205,7 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
     mutationFn: () => connectorsApi.validate(connectorId),
     onSuccess: (result) => {
       if (result.valid) toast.success("Connector is valid");
-      else toast.error(`Validation failed: ${result.errors?.join(", ") ?? "unknown error"}`);
+      else toast.error(`Validation failed: ${formatValidationErrors(result.errors)}`);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Validation failed"),
   });
@@ -515,6 +520,21 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
                 <p className="mt-2 text-xs text-muted-foreground">
                   Data is pulled from MongoDB asynchronously.
                 </p>
+                <div className="mt-4">
+                  <MongoSourcePicker
+                    connectorId={connectorId}
+                    currentDatabase={
+                      typeof connector.configSummary?.["database"] === "string"
+                        ? (connector.configSummary["database"] as string)
+                        : undefined
+                    }
+                    currentCollection={
+                      typeof connector.configSummary?.["collection"] === "string"
+                        ? (connector.configSummary["collection"] as string)
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             ) : (
               <>

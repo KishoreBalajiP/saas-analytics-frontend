@@ -3,6 +3,7 @@ import { useState } from "react";
 import { CheckCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AppLink } from "@/components/common/AppLink";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,6 +90,19 @@ export function NotificationsView() {
   );
 }
 
+/** In-app route of the resource a notification is about, if any. */
+export function notificationLink(n: Notification): string | null {
+  const id = (key: string) => {
+    const v = n.data?.[key];
+    return typeof v === "string" && /^[A-Za-z0-9_-]+$/.test(v) ? v : null;
+  };
+  const alertId = id("alertId");
+  if (alertId) return `/alerts/${alertId}`;
+  const reportId = id("reportId");
+  if (reportId) return `/reports/${reportId}`;
+  return null;
+}
+
 function NotificationCard({
   notification,
   canUpdate,
@@ -102,13 +116,16 @@ function NotificationCard({
   const read = useMutation({
     mutationFn: () => notificationsApi.markRead(notification._id),
     onSuccess: () => void client.invalidateQueries({ queryKey: ["notifications"] }),
+    onError: () => toast.error("Unable to mark notification as read"),
   });
+  const link = notificationLink(notification);
   const remove = useMutation({
     mutationFn: () => notificationsApi.remove(notification._id),
     onSuccess: () => {
       toast.success("Notification removed");
       void client.invalidateQueries({ queryKey: ["notifications"] });
     },
+    onError: () => toast.error("Unable to remove notification"),
   });
   return (
     <Card className={notification.read ? "" : "border-primary/50 bg-primary/5"}>
@@ -121,7 +138,17 @@ function NotificationCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{notification.body ?? ""}</p>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">{notification.body ?? ""}</p>
+          {link ? (
+            <AppLink
+              to={link}
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              View {link.startsWith("/alerts") ? "alert" : "report"}
+            </AppLink>
+          ) : null}
+        </div>
         <div className="flex shrink-0 gap-1">
           {canUpdate && !notification.read && (
             <Button

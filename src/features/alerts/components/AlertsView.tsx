@@ -440,6 +440,9 @@ export function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () =
   const [threshold, setThreshold] = useState(String(alert?.threshold ?? 0));
   const [thresholdHigh, setThresholdHigh] = useState(String(alert?.thresholdHigh ?? ""));
   const [cooldown, setCooldown] = useState(String(alert?.cooldownMinutes ?? 60));
+  const [repeatMode, setRepeatMode] = useState<"once_per_incident" | "after_cooldown">(
+    alert?.repeatMode ?? "once_per_incident",
+  );
   const [error, setError] = useState("");
   // The API rejects an invalid query with 400 INVALID_QUERY and a metric the
   // query does not output with 400 ALERT_METRIC_INVALID, both with field errors.
@@ -480,6 +483,7 @@ export function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () =
         threshold: low,
         ...(condition === "between" ? { thresholdHigh: Number(thresholdHigh) } : {}),
         cooldownMinutes: minutes,
+        repeatMode,
         source,
         ...(source === "query"
           ? { query: query as AnalyticsQueryParams }
@@ -643,6 +647,23 @@ export function AlertForm({ alert, onClose }: { alert?: AlertRule; onClose: () =
               value={cooldown}
               onChange={(e) => setCooldown(e.target.value)}
             />
+          </Label>
+          <Label>
+            Repeat notifications
+            <select
+              aria-label="Repeat notifications"
+              className="mt-1 block w-full rounded-md border bg-background p-2 text-sm"
+              value={repeatMode}
+              onChange={(e) => setRepeatMode(e.target.value as typeof repeatMode)}
+            >
+              <option value="once_per_incident">Once per incident</option>
+              <option value="after_cooldown">Every time the cooldown ends</option>
+            </select>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              {repeatMode === "once_per_incident"
+                ? "You're notified once when the condition starts. While it keeps firing with the same value you won't hear again; you'll be notified again if the value changes or after the condition clears and comes back."
+                : "While the condition keeps firing you're reminded again each time the cooldown ends, even if the value hasn't changed."}
+            </span>
           </Label>
           {error && (
             <p role="alert" className="text-sm text-destructive">

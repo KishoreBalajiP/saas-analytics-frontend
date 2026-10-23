@@ -32,12 +32,6 @@ export function PolicyPage({
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{title}</h1>
         <p className="mt-5 text-lg leading-8 text-muted-foreground">{summary}</p>
-        <div className="mt-10 rounded-xl border border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-800">
-          Publication note: this page describes current application behavior. The operator has not
-          published a legal entity, governing jurisdiction, privacy or security contact, retention
-          schedule, or commercial terms here. Those deployment-specific items require business and
-          legal approval before this page can serve as final legal terms.
-        </div>
         <div className="mt-10 space-y-8">
           {sections.map((section) => (
             <section key={section.heading}>

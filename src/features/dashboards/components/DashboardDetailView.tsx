@@ -78,6 +78,30 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
     enabled: canView && canExecute && !!dashboardId,
   });
 
+  const [publishErrors, setPublishErrors] = useState<{ message: string; widgetName?: string }[]>(
+    [],
+  );
+  const publishMutation = useMutation({
+    mutationFn: () => dashboardsApi.publish(dashboardId),
+    onSuccess: () => {
+      setPublishErrors([]);
+      toast.success("Dashboard published");
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+    },
+    onError: (error) => {
+      const list = error instanceof ApiError && Array.isArray(error.errors) ? error.errors : [];
+      setPublishErrors(
+        list.length
+          ? list.map((e) => ({ message: String(e.message ?? "") }))
+          : [
+              {
+                message: error instanceof Error ? error.message : "Unable to publish dashboard",
+              } as { message: string; widgetName?: string },
+            ],
+      );
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => dashboardsApi.remove(dashboardId),
     onSuccess: () => {
@@ -121,6 +145,22 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
 
   return (
     <div className="space-y-6">
+      {dashboard.status === "draft" && (
+        <p className="text-xs text-muted-foreground">
+          Draft: only editors see this dashboard. Publish it to share it; every widget is checked
+          first.
+        </p>
+      )}
+      {publishErrors.length > 0 && (
+        <div role="alert" className="rounded-md border border-destructive/50 p-3 text-sm">
+          <p className="font-medium text-destructive">This dashboard can't be published yet:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {publishErrors.map((e, i) => (
+              <li key={i}>{e.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2">
@@ -148,6 +188,17 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
         </div>
 
         <div className="flex items-center gap-2">
+          {canUpdate && dashboard.status === "draft" && (
+            <Button
+              size="sm"
+              onClick={() => publishMutation.mutate()}
+              disabled={publishMutation.isPending}
+              title="Publishing checks every widget and makes the dashboard visible to viewers"
+            >
+              {publishMutation.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              Publish
+            </Button>
+          )}
           {canUpdate && (
             <Button variant="outline" size="sm" asChild>
               <AppLink to={`/dashboards/${dashboardId}/edit` as string}>

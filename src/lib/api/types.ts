@@ -219,7 +219,7 @@ export interface AnalyticsQueryRecord {
   [key: string]: unknown;
 }
 
-export type WidgetType = "kpi" | "table" | "bar" | "line" | "area" | "pie";
+export type WidgetType = "kpi" | "table" | "bar" | "line" | "area" | "pie" | "doughnut" | "scatter";
 
 export interface Widget {
   _id: string;
@@ -377,6 +377,7 @@ export interface AlertRule {
   query?: AnalyticsQueryParams | null;
   schedule?: { cron?: string; timezone?: string | null };
   cooldownMinutes?: number;
+  repeatMode?: "once_per_incident" | "after_cooldown";
   /** How a grouped query is judged: whole dataset, some group, every group. */
   groupEvaluation?: AlertGroupEvaluation;
   lastTriggeredAt?: string | null;

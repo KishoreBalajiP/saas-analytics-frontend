@@ -80,11 +80,11 @@ describe("tenant login entry", () => {
     window.history.replaceState({}, "", "/login");
   });
 
-  it("explains when the browser blocked the sign-in cookie", () => {
+  it("does not show a cookie diagnostic during normal login rendering", () => {
     session.status = "anonymous";
     session.restoreError = "cookies_blocked";
     renderWithQuery(<TenantLoginPage />);
-    expect(screen.getByRole("alert")).toHaveTextContent(/blocked the sign-in cookie/i);
+    expect(screen.queryByText(/blocked the sign-in cookie/i)).not.toBeInTheDocument();
     session.restoreError = null;
   });
 

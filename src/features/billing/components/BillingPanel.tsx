@@ -25,7 +25,8 @@ import { BillingHistory } from "@/features/billing/components/BillingHistory";
 import { PricingPlans } from "@/features/billing/components/PricingPlans";
 import { SubscriptionBanner } from "@/features/billing/components/SubscriptionBanner";
 import { UsagePanel } from "@/features/billing/components/UsagePanel";
-import { FEATURE_LABELS } from "@/lib/api/quota";
+import { featurePresentation } from "@/features/billing/featureCatalog";
+import { formatMoney } from "@/features/billing/checkout";
 
 const STATE_LABELS: Record<SubscriptionSummary["state"], string> = {
   trialing: "Trial",
@@ -65,9 +66,36 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
     enabled: Boolean(tenantId),
   });
   const timeline = useQuery({
-    queryKey: ["billing", "timeline", tenantId],
-    queryFn: () => billingApi.getSubscriptionTimeline(tenantId, { limit: 10 }),
+    queryKey: ["billing", "timeline", tenantId, 1],
+    queryFn: () => billingApi.getSubscriptionTimeline(tenantId, { page: 1, limit: 10 }),
     enabled: Boolean(tenantId),
+  });
+  const plans = useQuery({
+    queryKey: ["billing", "plans", tenantId],
+    queryFn: () => billingApi.listPlans(tenantId),
+    enabled: Boolean(tenantId),
+  });
+  const transactions = useQuery({
+    queryKey: ["billing", "transactions", tenantId, "pending"],
+    queryFn: () => billingApi.listTransactions(tenantId, { limit: 10 }),
+    enabled: Boolean(tenantId),
+  });
+  const pendingStatus = useMutation({
+    mutationFn: (orderId: string) => billingApi.getCheckoutStatus(tenantId, orderId),
+    onSuccess: (result) => {
+      if (result.phase === "confirmed") toast.success("Payment confirmed");
+      else toast.message(`Payment status: ${result.phase.replace(/_/g, " ")}`);
+      void queryClient.invalidateQueries({ queryKey: ["billing"] });
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Unable to check payment status"),
+  });
+  const abandonPending = useMutation({
+    mutationFn: (orderId: string) => billingApi.cancelCheckout(tenantId, orderId),
+    onSuccess: () => {
+      toast.success("Pending checkout abandoned");
+      void queryClient.invalidateQueries({ queryKey: ["billing"] });
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Unable to abandon checkout"),
   });
 
   const cancel = useMutation({
@@ -98,18 +126,27 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
     onError: (err: Error) => toast.error(err.message ?? "Failed to reactivate"),
   });
 
-  if (subscription.isLoading || entitlements.isLoading) {
+  if (subscription.isLoading || entitlements.isLoading || plans.isLoading) {
     return <TableSkeleton rows={4} cols={2} />;
   }
-  if (subscription.isError) {
+  if (subscription.isError || entitlements.isError) {
     return (
       <ErrorState
-        error={subscription.error}
+        error={subscription.error ?? entitlements.error}
         onRetry={() => {
           void subscription.refetch();
           void entitlements.refetch();
         }}
         resource="Subscription"
+      />
+    );
+  }
+  if (plans.isError) {
+    return (
+      <ErrorState
+        error={plans.error}
+        onRetry={() => void plans.refetch()}
+        resource="Plan catalogue"
       />
     );
   }
@@ -119,15 +156,26 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
     return <EmptyState title="No billing data" description="No subscription yet." />;
   }
 
+  const currentPlan = plans.data?.plans.find((plan) => plan.code === ent.plan.code);
+  const pending = (transactions.data?.data ?? []).find(
+    (txn) =>
+      txn.status === "pending" ||
+      txn.status === "authorized" ||
+      (txn.status === "captured" && !txn.applied),
+  );
+  const state = sub.access?.state ?? sub.state;
+  const stateLabel = STATE_LABELS[state] ?? state;
+  const allFeatureKeys = Array.from(
+    new Set((plans.data?.plans ?? []).flatMap((plan) => Object.keys(plan.features))),
+  );
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Current plan</span>
-            <Badge variant={STATE_BADGE[sub.access?.state ?? sub.state]}>
-              {STATE_LABELS[sub.access?.state ?? sub.state]}
-            </Badge>
+            <Badge variant={STATE_BADGE[state]}>{stateLabel}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -137,6 +185,75 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
               ({ent.plan.code})
             </span>
           </div>
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryItem
+              label="Billing interval"
+              value={
+                sub.billingInterval === "year"
+                  ? "Annual"
+                  : sub.planId === "free"
+                    ? "No paid term"
+                    : "Monthly"
+              }
+            />
+            <SummaryItem
+              label="Price"
+              value={
+                sub.planId === "free"
+                  ? "Free"
+                  : currentPlan
+                    ? currentPlan.prices.find(
+                        (p) => p.interval === (sub.billingInterval ?? "month"),
+                      )
+                      ? `${formatMoney(currentPlan.prices.find((p) => p.interval === (sub.billingInterval ?? "month"))!.amountMinor, currentPlan.prices.find((p) => p.interval === (sub.billingInterval ?? "month"))!.currency)} / ${sub.billingInterval === "year" ? "year" : "month"}`
+                      : "Configured by catalogue"
+                    : "Configured by catalogue"
+              }
+            />
+            <SummaryItem label="Started" value={date(sub.currentPeriodStart)} />
+            <SummaryItem
+              label={state === "canceled" || state === "expired" ? "Expires" : "Term ends"}
+              value={sub.planId === "free" ? "No expiration" : date(sub.currentPeriodEnd)}
+            />
+          </div>
+          {pending && (
+            <div
+              className="rounded-lg border border-amber-300/70 bg-amber-50 p-3 text-sm text-amber-950"
+              data-testid="pending-purchase"
+            >
+              <p className="font-medium">You have a payment awaiting confirmation.</p>
+              <p className="text-xs">Plan selected: {pending.planId}</p>
+              <p className="mt-1">
+                Payment status: {pending.status === "captured" ? "Applying" : "Awaiting payment"}.
+                Your current plan remains {ent.plan.displayName} until the server confirms and
+                applies payment.
+              </p>
+              <p className="mt-1 text-xs">Reference: {pending.orderId}</p>
+              {pending.status === "captured" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={() => pendingStatus.mutate(pending.orderId)}
+                  disabled={pendingStatus.isPending}
+                >
+                  {pendingStatus.isPending ? "Checking…" : "Check payment status"}
+                </Button>
+              ) : (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-xs">Continue this order or choose another plan below.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => abandonPending.mutate(pending.orderId)}
+                    disabled={abandonPending.isPending}
+                  >
+                    {abandonPending.isPending ? "Abandoning…" : "Cancel pending order"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           {sub.planId !== "free" && (
             <p className="text-muted-foreground text-sm" data-testid="period-end">
               {sub.billingInterval === "year" ? "Annual" : "Monthly"} prepaid term · ends{" "}
@@ -207,19 +324,29 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
         </CardHeader>
         <CardContent>
           <div className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(ent.features).map(([feature, enabled]) => (
-              <div
-                key={feature}
-                className="flex items-center justify-between rounded-md border p-2"
-              >
-                <span className="text-sm">{FEATURE_LABELS[feature] ?? feature}</span>
-                {enabled ? (
-                  <Badge variant="default">enabled</Badge>
-                ) : (
-                  <Badge variant="secondary">disabled</Badge>
-                )}
-              </div>
-            ))}
+            {allFeatureKeys.map((feature) => {
+              const presentation = featurePresentation(feature);
+              const enabled = ent.features[feature] === true;
+              const included = currentPlan?.features[feature] === true;
+              return (
+                <div
+                  key={feature}
+                  className="flex items-center justify-between rounded-md border p-2"
+                >
+                  <div>
+                    <span className="text-sm">{presentation.label}</span>
+                    <p className="text-muted-foreground text-xs">{presentation.description}</p>
+                  </div>
+                  {enabled ? (
+                    <Badge variant="default">Available</Badge>
+                  ) : included ? (
+                    <Badge variant="outline">Included, not ready</Badge>
+                  ) : (
+                    <Badge variant="secondary">Not included</Badge>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -233,14 +360,14 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
             <TableSkeleton rows={3} cols={2} />
           ) : timeline.isError ? (
             <ErrorState error={timeline.error} resource="Activity" />
-          ) : (timeline.data ?? []).length === 0 ? (
+          ) : (timeline.data?.data ?? []).length === 0 ? (
             <EmptyState title="No activity yet" description="No subscription changes yet." />
           ) : (
             <ul className="space-y-2 text-sm">
-              {(timeline.data ?? []).map((entry) => (
+              {(timeline.data?.data ?? []).map((entry) => (
                 <li key={entry._id} className="border-b py-1 last:border-b-0">
                   <div className="flex items-center justify-between">
-                    <span>{entry.type}</span>
+                    <span>{activityLabel(entry.type, entry.toPlanId, entry.toState)}</span>
                     <span className="text-muted-foreground text-xs">{date(entry.occurredAt)}</span>
                   </div>
                   {entry.reason && (
@@ -267,11 +394,39 @@ export function BillingPanel({ tenantId }: { tenantId: string }) {
           <CardTitle>Plans</CardTitle>
         </CardHeader>
         <CardContent>
-          <PricingPlans tenantId={tenantId} currentPlanId={sub.planId} />
+          <PricingPlans
+            tenantId={tenantId}
+            currentPlanId={sub.planId}
+            pendingPlanId={pending?.planId ?? null}
+            pendingStatus={pending?.status ?? null}
+          />
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border p-2">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="font-medium">{value}</div>
+    </div>
+  );
+}
+
+function activityLabel(type: string, plan: string | null, state: string | null) {
+  if (type === "subscription.created") return `Subscription created${plan ? ` on ${plan}` : ""}`;
+  if (type === "subscription.plan_changed") return `Plan changed${plan ? ` to ${plan}` : ""}`;
+  if (type === "subscription.state_changed")
+    return `Subscription status changed${state ? ` to ${state}` : ""}`;
+  if (type === "subscription.payment_captured") return "Payment captured";
+  if (type === "subscription.payment_failed") return "Payment failed";
+  if (type === "subscription.payment_refunded") return "Payment refunded";
+  return type
+    .replace(/^subscription\./, "")
+    .replace(/_/g, " ")
+    .replace(/^\w/, (c) => c.toUpperCase());
 }
 
 function CancelDialog({

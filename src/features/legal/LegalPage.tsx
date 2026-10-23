@@ -1,7 +1,6 @@
 import { AppLink } from "@/components/common/AppLink";
 import { Brand } from "@/components/common/Brand";
 import { PublicFooter } from "@/components/common/PublicFooter";
-import { LEGAL_DOCUMENT_VERSION } from "@/content/legal/version";
 
 import { parseMarkdown, type Inline } from "./markdown";
 
@@ -24,9 +23,7 @@ function Inlines({ inlines }: { inlines: Inline[] }) {
 }
 
 /**
- * A legal document rendered from a bundled Markdown file (onboarding). Every
- * page carries a pending-review banner: these are templates,
- * not final terms.
+ * A legal document rendered from a bundled Markdown file.
  */
 export function LegalPage({ source }: { source: string }) {
   const blocks = parseMarkdown(source);
@@ -44,13 +41,6 @@ export function LegalPage({ source }: { source: string }) {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-5 py-14 lg:px-8 lg:py-20">
-        <div
-          role="note"
-          className="mb-10 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium leading-6 text-amber-900"
-        >
-          Pending legal review. This document is informational and is not yet final legal terms.
-          Version {LEGAL_DOCUMENT_VERSION}.
-        </div>
         <article className="space-y-5">
           {blocks.map((block, i) => {
             if (block.kind === "h1")

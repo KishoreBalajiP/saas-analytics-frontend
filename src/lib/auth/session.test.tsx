@@ -69,6 +69,31 @@ describe("TenantSessionProvider", () => {
 
       expect(result.current.status).toBe("loading");
     });
+
+    it("reuses the loaded profile when a protected route remounts", async () => {
+      setAccessToken("tenant", "existing_token");
+      mockedAuthApi.tenantMe.mockResolvedValue({
+        tenantId: "tenant-1",
+        email: "owner@example.test",
+        permissions: [],
+      } as never);
+
+      const firstRender = renderHook(() => useTenantSession(), {
+        wrapper: createWrapper(),
+      });
+
+      await settle();
+      expect(firstRender.result.current.status).toBe("authenticated");
+      expect(firstRender.result.current.permissions).toEqual([]);
+
+      firstRender.unmount();
+      const remounted = renderHook(() => useTenantSession(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(remounted.result.current.status).toBe("authenticated");
+      expect(remounted.result.current.me?.tenantId).toBe("tenant-1");
+    });
   });
 
   describe("anonymous session", () => {

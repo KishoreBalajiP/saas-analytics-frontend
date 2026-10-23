@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TenantPortal } from "@/components/layout/TenantPortal";
-import { ErrorState } from "@/components/common/states";
+import { TableSkeleton } from "@/components/common/states";
 import * as billingApi from "@/features/billing/api";
 import { PricingPlans } from "@/features/billing/components/PricingPlans";
 import { SubscriptionBanner } from "@/features/billing/components/SubscriptionBanner";
@@ -29,7 +29,7 @@ function PricingRoute() {
     enabled: Boolean(tenantId),
   });
   if (!tenantId) {
-    return <ErrorState error={{ statusCode: 401 }} resource="Plans" loginTo="/login" />;
+    return <TableSkeleton rows={4} cols={2} />;
   }
   return (
     <>

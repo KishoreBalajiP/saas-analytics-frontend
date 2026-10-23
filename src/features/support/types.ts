@@ -58,6 +58,7 @@ export interface SupportSessionRecord {
 export interface WorkspaceSupportAccess {
   active: SupportGrant | null;
   grants: SupportGrant[];
+  grantsMeta?: { page: number; limit: number; total: number; pages: number };
   sessions: SupportSessionRecord[];
   maxHours: number;
 }

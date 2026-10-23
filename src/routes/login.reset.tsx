@@ -38,7 +38,7 @@ function ResetPasswordPage() {
   const mismatch = confirm.length > 0 && confirm !== password;
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-xl">
       <CardHeader>
         <CardTitle>Choose a new password</CardTitle>
         <CardDescription>
