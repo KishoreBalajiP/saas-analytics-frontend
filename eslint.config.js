@@ -34,7 +34,16 @@ export default tseslint.config(
       ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Accept the repository's checked-out line ending on Windows while
+      // preserving all other Prettier formatting diagnostics.
+      "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
   eslintPluginPrettier,
+  {
+    files: ["**/*.{js,ts,tsx}"],
+    rules: {
+      "prettier/prettier": ["error", { endOfLine: "auto" }],
+    },
+  },
 );

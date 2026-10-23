@@ -14,7 +14,11 @@ export function SchemaView({ connectorId }: { connectorId: string }) {
   if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const schema = query.data;
   if (!schema || schema.fields.length === 0) {
-    return <p className="text-sm text-muted-foreground">No schema yet. Sync data to profile this dataset.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No schema yet. Sync data to profile this dataset.
+      </p>
+    );
   }
   return (
     <div className="space-y-3">
@@ -39,12 +43,20 @@ export function SchemaView({ connectorId }: { connectorId: string }) {
               <tr key={f.name} className="border-b">
                 <td className="py-2 pr-4 font-medium">
                   {f.displayName ?? f.name}
-                  {f.personal ? <Badge variant="outline" className="ml-2">Personal</Badge> : null}
+                  {f.personal ? (
+                    <Badge variant="outline" className="ml-2">
+                      Personal
+                    </Badge>
+                  ) : null}
                 </td>
-                <td className="py-2 pr-4"><Badge variant="secondary">{f.type}</Badge></td>
+                <td className="py-2 pr-4">
+                  <Badge variant="secondary">{f.type}</Badge>
+                </td>
                 <td className="py-2 pr-4">{Math.round(f.nullRate * 100)}%</td>
                 <td className="py-2 pr-4">{f.distinctEstimate}</td>
-                <td className="py-2 pr-4 text-muted-foreground">{f.sample.map(String).join(", ")}</td>
+                <td className="py-2 pr-4 text-muted-foreground">
+                  {f.sample.map(String).join(", ")}
+                </td>
               </tr>
             ))}
           </tbody>

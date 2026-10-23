@@ -350,7 +350,7 @@ export function RegistrationPage() {
                 <AppLink to="/privacy" className="text-primary hover:underline">
                   Privacy Policy
                 </AppLink>{" "}
-              (pending legal review; these documents are not final legal terms).
+                (pending legal review; these documents are not final legal terms).
               </Label>
             </div>
             <InlineFieldErrors error={mutation.error} />

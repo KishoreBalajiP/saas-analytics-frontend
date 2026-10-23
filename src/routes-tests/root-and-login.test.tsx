@@ -94,6 +94,18 @@ describe("tenant login entry", () => {
     expect(screen.queryByText(/blocked the sign-in cookie/i)).not.toBeInTheDocument();
   });
 
+  it("keeps the password visibility control inside the field and accessible", () => {
+    renderWithQuery(<TenantLoginPage />);
+    const password = screen.getByLabelText("Password");
+    const toggle = screen.getByRole("button", { name: "Show password" });
+
+    expect(password).toHaveAttribute("type", "password");
+    expect(toggle).toHaveAttribute("type", "button");
+    fireEvent.click(toggle);
+    expect(password).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: "Hide password" })).toBeVisible();
+  });
+
   // onboarding: the last workspace is remembered, with a way to switch.
   it("prefills the remembered workspace and can forget it", async () => {
     window.localStorage.setItem("saas.tenantSlug", "remembered-co");

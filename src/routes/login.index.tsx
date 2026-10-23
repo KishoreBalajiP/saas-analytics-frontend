@@ -187,7 +187,7 @@ export function TenantLoginPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <div className="flex w-full items-center gap-2">
+            <div className="relative w-full">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
@@ -195,15 +195,20 @@ export function TenantLoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                className="min-w-0 flex-1"
+                className="w-full pr-12"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((open) => !open)}
-                className="h-10 w-10 shrink-0 rounded-xl border border-border p-0 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" className="h-4 w-4" />
+                ) : (
+                  <Eye aria-hidden="true" className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>

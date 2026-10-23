@@ -104,7 +104,9 @@ function renderPlans(props: Partial<Parameters<typeof PricingPlans>[0]> = {}) {
       <PricingPlans
         tenantId="t1"
         currentPlanId="free"
-        pollIntervalMs={1}
+        // Keep the timeout-path test deterministic without flooding the event loop
+        // with dozens of React updates when the full suite is under load.
+        pollIntervalMs={10}
         pollTimeoutMs={50}
         {...props}
       />
@@ -169,6 +171,7 @@ describe("PricingPlans", () => {
       razorpay_payment_id: "pay_1",
       razorpay_signature: "sig",
     });
+    await waitFor(() => expect(api.getCheckoutStatus).toHaveBeenCalledTimes(2));
     resolveConfirmed(status("confirmed"));
     expect(await screen.findByTestId("checkout-confirmed")).toBeInTheDocument();
   });
