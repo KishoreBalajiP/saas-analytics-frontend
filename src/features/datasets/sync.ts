@@ -113,3 +113,44 @@ export function syncErrorMessage(error: unknown) {
   if (error instanceof ApiError) return error.message;
   return error instanceof Error ? error.message : "Sync failed";
 }
+
+/**
+ * Whether a dataset can be queried, from its sync bookkeeping:
+ *   ready      - it holds data (a re-sync may be running; old data stays queryable)
+ *   processing - its first import is queued or running
+ *   failed     - its first import failed (no data)
+ *   empty      - nothing imported yet (e.g. a webhook with no deliveries)
+ * The API refuses queries on `processing` / `failed` datasets (409 DATASET_NOT_READY).
+ */
+export type DatasetState = "ready" | "processing" | "failed" | "empty";
+
+export function datasetState(
+  connector: Pick<Connector, "lastSyncedAt" | "syncStatus"> | null | undefined,
+): DatasetState {
+  if (connector?.lastSyncedAt) return "ready";
+  if (connector?.syncStatus === "queued" || connector?.syncStatus === "running")
+    return "processing";
+  if (connector?.syncStatus === "failed") return "failed";
+  return "empty";
+}
+
+export const DATASET_STATE_LABELS: Record<DatasetState, string> = {
+  ready: "Ready",
+  processing: "Processing",
+  failed: "Import failed",
+  empty: "No data yet",
+};
+
+export function datasetStateVariant(state: DatasetState): BadgeVariant {
+  if (state === "ready") return "default";
+  if (state === "failed") return "destructive";
+  if (state === "processing") return "secondary";
+  return "outline";
+}
+
+/** Datasets a builder may offer: ready ones, plus any already in use (kept selectable). */
+export function selectableDatasets<
+  T extends Pick<Connector, "_id" | "lastSyncedAt" | "syncStatus">,
+>(connectors: T[], inUse: string[] = []) {
+  return connectors.filter((c) => datasetState(c) === "ready" || inUse.includes(c._id));
+}

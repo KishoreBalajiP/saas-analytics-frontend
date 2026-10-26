@@ -36,6 +36,10 @@ export interface AddToDashboardDialogProps {
   rows?: Array<Record<string, unknown>>;
   defaultTitle?: string;
   defaultType?: WidgetType;
+  /** Preselect this dashboard (e.g. when asking from inside its editor). */
+  defaultDashboardId?: string;
+  /** Called after the widget was saved. */
+  onAdded?: (result: { dashboardId: string; name: string }) => void;
 }
 
 function errorText(error: unknown) {
@@ -54,6 +58,8 @@ export function AddToDashboardDialog({
   rows = [],
   defaultTitle = "",
   defaultType,
+  defaultDashboardId,
+  onAdded,
 }: AddToDashboardDialogProps) {
   const queryClient = useQueryClient();
   const widgetQuery = toWidgetQuery(query);
@@ -74,7 +80,8 @@ export function AddToDashboardDialog({
     enabled: open,
   });
   const items = dashboards.data?.data ?? [];
-  const selected = target || (items.length ? items[0]!._id : NEW);
+  const selected = target || defaultDashboardId || (items.length ? items[0]!._id : NEW);
+  const defaultMissing = !!defaultDashboardId && !items.some((d) => d._id === defaultDashboardId);
 
   const add = useMutation({
     mutationFn: async () => {
@@ -99,6 +106,7 @@ export function AddToDashboardDialog({
     onSuccess: (result) => {
       setCreated(result);
       void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      onAdded?.(result);
     },
   });
 
@@ -164,6 +172,7 @@ export function AddToDashboardDialog({
                 value={selected}
                 onChange={(e) => setTarget(e.target.value)}
               >
+                {defaultMissing ? <option value={defaultDashboardId}>This dashboard</option> : null}
                 {items.map((d) => (
                   <option key={d._id} value={d._id}>
                     {d.name}

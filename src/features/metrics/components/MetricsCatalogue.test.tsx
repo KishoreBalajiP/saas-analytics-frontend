@@ -10,7 +10,7 @@ const api = vi.hoisted(() => ({
   archive: vi.fn(),
 }));
 vi.mock("@/features/metrics/api", () => api);
-const datasets = vi.hoisted(() => ({ list: vi.fn() }));
+const datasets = vi.hoisted(() => ({ list: vi.fn(), getSchema: vi.fn(async () => null) }));
 vi.mock("@/features/datasets/api", () => datasets);
 const analytics = vi.hoisted(() => ({ runQuery: vi.fn() }));
 vi.mock("@/features/analytics/api", () => analytics);
@@ -50,7 +50,10 @@ beforeEach(() => {
   api.list.mockResolvedValue({ data: [draft], meta: {} });
   api.approve.mockResolvedValue(draft);
   api.update.mockResolvedValue(draft);
-  datasets.list.mockResolvedValue({ data: [{ _id: "c", name: "Orders" }], meta: {} });
+  datasets.list.mockResolvedValue({
+    data: [{ _id: "c", name: "Orders", lastSyncedAt: "2026-10-01T00:00:00Z" }],
+    meta: {},
+  });
 });
 
 describe("MetricsCatalogue", () => {

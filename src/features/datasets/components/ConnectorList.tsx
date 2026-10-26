@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, FileSpreadsheet, Globe, Plus, Trash2, Webhook } from "lucide-react";
+import { Database, FileSpreadsheet, Globe, Plus, Trash2, Upload, Webhook } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,6 +7,8 @@ import { AppLink } from "@/components/common/AppLink";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
 import { CreateConnectorDialog } from "@/features/datasets/components/CreateConnectorDialog";
+import { ImportFileDialog } from "@/features/datasets/components/ImportFileDialog";
+import { DATASET_STATE_LABELS, datasetState, datasetStateVariant } from "@/features/datasets/sync";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +58,7 @@ interface ConnectorRow extends Record<string, unknown> {
   type: ConnectorType;
   status: string;
   lastSyncedAt?: string | null;
+  syncStatus?: "idle" | "queued" | "running" | "succeeded" | "failed";
 }
 
 export function ConnectorList() {
@@ -66,8 +69,10 @@ export function ConnectorList() {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [pendingDelete, setPendingDelete] = useState<ConnectorRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const canView = hasPermission(permissions, Permissions.CONNECTORS_VIEW);
+  const canCreate = hasPermission(permissions, Permissions.CONNECTORS_CREATE);
   const canDelete = hasPermission(permissions, Permissions.CONNECTORS_DELETE);
 
   const query = useQuery({
@@ -123,8 +128,23 @@ export function ConnectorList() {
       },
     },
     {
+      key: "data",
+      header: "Data",
+      render: (row) => {
+        const state = datasetState(row);
+        return (
+          <Badge variant={datasetStateVariant(state)}>
+            {DATASET_STATE_LABELS[state]}
+            {state === "ready" && (row.syncStatus === "queued" || row.syncStatus === "running")
+              ? " · syncing"
+              : ""}
+          </Badge>
+        );
+      },
+    },
+    {
       key: "status",
-      header: "Status",
+      header: "Connection",
       render: (row) => (
         <Badge variant={statusVariant(row.status)} className="capitalize">
           {row.status}
@@ -197,18 +217,30 @@ export function ConnectorList() {
   const rows = (query.data?.data ?? []) as ConnectorRow[];
   const meta = query.data?.meta as PaginationMeta | undefined;
 
-  if (!rows.length) {
+  const importDialog = importOpen ? (
+    <ImportFileDialog open={importOpen} onOpenChange={setImportOpen} />
+  ) : null;
+
+  if (!rows.length && !search && !typeFilter) {
     return (
       <>
         <EmptyState
-          title="No connectors yet"
-          description="Create your first connector to start ingesting data from CSV, XLSX, MongoDB, or a webhook."
+          title="No datasets yet"
+          description="Upload a CSV or Excel file, or connect MongoDB or a webhook, to start analysing your data."
           action={
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1 h-4 w-4" /> Create connector
-            </Button>
+            canCreate ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setImportOpen(true)}>
+                  <Upload className="mr-1 h-4 w-4" /> Upload a file
+                </Button>
+                <Button variant="outline" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-1 h-4 w-4" /> Connect a source
+                </Button>
+              </div>
+            ) : undefined
           }
         />
+        {importDialog}
         <CreateConnectorDialog
           open={createOpen}
           onOpenChange={setCreateOpen}
@@ -224,9 +256,16 @@ export function ConnectorList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> New connector
-        </Button>
+        {canCreate ? (
+          <>
+            <Button size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-1 h-3.5 w-3.5" /> Upload file
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Connect source
+            </Button>
+          </>
+        ) : null}
         <input
           type="search"
           value={search}
@@ -234,9 +273,9 @@ export function ConnectorList() {
             setPage(1);
             setSearch(event.target.value);
           }}
-          placeholder="Search connectors…"
+          placeholder="Search datasets…"
           className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Search connectors"
+          aria-label="Search datasets"
         />
         <select
           value={typeFilter}
@@ -255,13 +294,18 @@ export function ConnectorList() {
         </select>
       </div>
 
-      <DataTable<ConnectorRow>
-        columns={columns}
-        data={rows}
-        meta={meta}
-        onPageChange={setPage}
-        getRowId={(row) => row._id}
-      />
+      {rows.length ? (
+        <DataTable<ConnectorRow>
+          columns={columns}
+          data={rows}
+          meta={meta}
+          onPageChange={setPage}
+          getRowId={(row) => row._id}
+        />
+      ) : (
+        <EmptyState title="No matching datasets" description="Try another search or type." />
+      )}
+      {importDialog}
 
       <CreateConnectorDialog
         open={createOpen}

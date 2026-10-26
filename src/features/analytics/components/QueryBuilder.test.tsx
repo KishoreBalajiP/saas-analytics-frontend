@@ -1,8 +1,26 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/features/datasets/api", () => ({
+  getSchema: vi.fn(async () => ({
+    connectorId: "c1",
+    fields: [
+      { name: "amount", type: "number" },
+      { name: "order_date", type: "date" },
+    ],
+  })),
+}));
 
 import type { Connector } from "@/lib/api/types";
 import { QueryBuilder } from "./QueryBuilder";
+
+// The builder looks up the selected datasets' schemas for field suggestions.
+function render(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 const connectors = [{ _id: "c1", name: "Orders", type: "csv" }] as unknown as Connector[];
 
@@ -92,5 +110,24 @@ describe("QueryBuilder", () => {
     );
     expect(screen.getByRole("alert")).toHaveTextContent("filters[0].op");
     expect(screen.getByRole("alert")).toHaveTextContent("must be one of eq, neq");
+  });
+
+  it("suggests the selected dataset's fields and blocks datasets that are still importing", async () => {
+    const mixed = [
+      { _id: "c1", name: "Orders", type: "csv", lastSyncedAt: "2026-10-01T00:00:00Z" },
+      { _id: "c2", name: "Pending", type: "csv", syncStatus: "running" },
+      { _id: "c3", name: "Broken", type: "xlsx", syncStatus: "failed" },
+    ] as unknown as Connector[];
+    const { container } = render(<QueryBuilder connectors={mixed} onRun={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /pending/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /broken.*import failed/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /orders/i }));
+    await screen.findByText(
+      (_, el) => el?.tagName === "OPTION" && el.getAttribute("value") === "amount",
+    );
+    const values = [...container.querySelectorAll('datalist[id^="analytics-fields"] option')].map(
+      (o) => o.getAttribute("value"),
+    );
+    expect(values).toEqual(["amount", "order_date"]);
   });
 });

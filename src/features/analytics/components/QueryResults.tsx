@@ -14,10 +14,19 @@ import {
 } from "@/components/ui/select";
 import * as analyticsApi from "@/features/analytics/api";
 import { ExportStatus } from "@/features/analytics/components/ExportStatus";
-import { recommendChartType, WIDGET_TYPE_LABELS } from "@/features/dashboards/chartRecommendation";
+import {
+  chartTypesFor,
+  recommendChartType,
+  WIDGET_TYPE_LABELS,
+} from "@/features/dashboards/chartRecommendation";
 import { AddToDashboardButton } from "@/features/dashboards/components/AddToDashboardDialog";
 import { ApiError } from "@/lib/api/client";
-import type { AnalyticsQueryParams, AnalyticsResult, QueryWindow } from "@/lib/api/types";
+import type {
+  AnalyticsQueryParams,
+  AnalyticsResult,
+  QueryWindow,
+  WidgetType,
+} from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 interface QueryResultsProps {
@@ -30,18 +39,7 @@ interface QueryResultsProps {
   canExport?: boolean;
 }
 
-type ChartType = "bar" | "line" | "area" | "pie" | "doughnut" | "scatter";
-
-const CHART_TYPES: ChartType[] = ["bar", "line", "area", "pie", "doughnut", "scatter"];
-
-/** Default chart from the recommendation helper (kpi/table fall back to bar). */
-function defaultChart(
-  params: AnalyticsQueryParams | undefined,
-  rows: Array<Record<string, unknown>>,
-) {
-  const t = recommendChartType(params, rows);
-  return (CHART_TYPES as string[]).includes(t) ? (t as ChartType) : "bar";
-}
+type ChartType = Exclude<WidgetType, "table">;
 
 function formatTimestamp(value?: string) {
   if (!value) return null;
@@ -105,10 +103,17 @@ export function QueryResults({
   onPageChange,
   canExport = false,
 }: QueryResultsProps) {
-  const [view, setView] = useState<"table" | "chart">("table");
   // null = follow the recommendation for the current result; set once the user picks.
+  const [chosenView, setView] = useState<"table" | "chart" | null>(null);
   const [chosenChart, setChartType] = useState<ChartType | null>(null);
-  const chartType = chosenChart ?? defaultChart(lastParams, result?.rows ?? []);
+  const chartTypes = chartTypesFor(lastParams);
+  const recommended = recommendChartType(lastParams, result?.rows ?? []);
+  const chartType: ChartType | null =
+    chosenChart && chartTypes.includes(chosenChart)
+      ? chosenChart
+      : (chartTypes.find((t) => t === recommended) ?? chartTypes[0] ?? null);
+  const view =
+    chartType === null ? "table" : (chosenView ?? (recommended === "table" ? "table" : "chart"));
   // The export being tracked (status polled until ready, then downloadable).
   const [exportId, setExportId] = useState<string | null>(null);
 
@@ -179,25 +184,32 @@ export function QueryResults({
         {result.window && <span>{describeWindow(result.window, result.timezone)}</span>}
         {result.timezone && <span>Time zone {result.timezone}</span>}
         <div className="ml-auto flex items-center gap-2">
-          <Select value={view} onValueChange={(v) => setView(v as "table" | "chart")}>
-            <SelectTrigger className="h-7 w-20 text-xs" aria-label="View mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="table">Table</SelectItem>
-              <SelectItem value="chart">Chart</SelectItem>
-            </SelectContent>
-          </Select>
+          {chartType ? (
+            <Select value={view} onValueChange={(v) => setView(v as "table" | "chart")}>
+              <SelectTrigger className="h-7 w-20 text-xs" aria-label="View mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="table">Table</SelectItem>
+                <SelectItem value="chart">Chart</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <span title="Add a metric (and a Group by for charts) to visualize this result">
+              Table only
+            </span>
+          )}
 
-          {view === "chart" && (
+          {view === "chart" && chartType && (
             <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
               <SelectTrigger className="h-7 w-24 text-xs" aria-label="Chart type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CHART_TYPES.map((t) => (
+                {chartTypes.map((t) => (
                   <SelectItem key={t} value={t}>
                     {WIDGET_TYPE_LABELS[t]}
+                    {t === recommended ? " ★" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -210,7 +222,7 @@ export function QueryResults({
               datasetId={lastParams.connectorIds?.length === 1 ? lastParams.connectorIds[0]! : ""}
               rows={rows}
               defaultTitle="Analytics result"
-              {...(view === "chart" ? { defaultType: chartType } : {})}
+              {...(view === "chart" && chartType ? { defaultType: chartType } : {})}
             />
           ) : null}
 
@@ -235,10 +247,10 @@ export function QueryResults({
       ) : null}
 
       {/* Results */}
-      {view === "table" ? (
-        <WidgetView type="table" result={result} />
-      ) : (
+      {view === "chart" && chartType ? (
         <WidgetView type={chartType} result={result} />
+      ) : (
+        <WidgetView type="table" result={result} />
       )}
 
       {/* Pagination */}

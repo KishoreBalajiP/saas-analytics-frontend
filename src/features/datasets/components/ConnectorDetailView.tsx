@@ -49,8 +49,15 @@ import { SchemaView } from "@/features/datasets/components/SchemaView";
 import { MongoSourcePicker } from "@/features/datasets/components/MongoSourcePicker";
 // rls: dataset access, row rules and preview-as-member.
 import { DatasetAccessPanel } from "@/features/datasets/access/DatasetAccessPanel";
-import { SYNC_POLL_INTERVAL_MS, isSyncInFlight, syncErrorMessage } from "@/features/datasets/sync";
-import type { ConnectorType, PaginationMeta, PreviewResult } from "@/lib/api/types";
+import {
+  DATASET_STATE_LABELS,
+  SYNC_POLL_INTERVAL_MS,
+  datasetState,
+  datasetStateVariant,
+  isSyncInFlight,
+  syncErrorMessage,
+} from "@/features/datasets/sync";
+import type { Connector, ConnectorType, PaginationMeta, PreviewResult } from "@/lib/api/types";
 import { isQuotaExceeded, toastError } from "@/lib/api/quota";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { useTenantSession } from "@/lib/auth/session";
@@ -333,6 +340,8 @@ export function ConnectorDetailView({ connectorId }: { connectorId: string }) {
           </div>
         }
       />
+
+      <DatasetStateBanner connector={connector} {...(canSync ? { onOpenTab: setTab } : {})} />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -623,5 +632,64 @@ function UploadErrorAlert({ error }: { error: DescribedError }) {
       <AlertTitle>{error.title}</AlertTitle>
       <AlertDescription>{error.description}</AlertDescription>
     </Alert>
+  );
+}
+
+/**
+ * Whether the dataset can be used yet, and what to do next. Shown above the
+ * tabs; the page polls while an import runs, so it updates by itself.
+ */
+function DatasetStateBanner({
+  connector,
+  onOpenTab,
+}: {
+  connector: Connector;
+  /** Opens the Sync tab (only passed when the user may sync). */
+  onOpenTab?: (tab: string) => void;
+}) {
+  const state = datasetState(connector);
+  const isFile = connector.type === "csv" || connector.type === "xlsx";
+  const tone =
+    state === "failed"
+      ? "border-destructive/40 bg-destructive/5"
+      : state === "ready"
+        ? "border-emerald-600/30 bg-emerald-600/5"
+        : "border-border bg-muted/40";
+  return (
+    <div
+      aria-label="Dataset state"
+      className={`mb-4 flex flex-col gap-3 rounded-lg border p-3 text-sm sm:flex-row sm:items-center sm:justify-between ${tone}`}
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        <Badge variant={datasetStateVariant(state)}>{DATASET_STATE_LABELS[state]}</Badge>
+        <p className="min-w-0 text-muted-foreground">
+          {state === "ready"
+            ? "This dataset has data. Explore it in Analytics or add charts to a dashboard."
+            : state === "processing"
+              ? "Importing your data. This page updates by itself when the import finishes."
+              : state === "failed"
+                ? `The import failed${connector.lastError ? `: ${connector.lastError}` : ""}. Fix the source and ${isFile ? "upload the file again" : "sync again"}.`
+                : isFile
+                  ? "No data yet. Upload a file on the Sync tab."
+                  : "No data yet. Data appears after the first sync or delivery."}
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        {state === "ready" ? (
+          <>
+            <Button asChild size="sm" variant="outline">
+              <AppLink to="/analytics">Explore in Analytics</AppLink>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <AppLink to="/dashboards">Open dashboards</AppLink>
+            </Button>
+          </>
+        ) : (state === "failed" || state === "empty") && onOpenTab ? (
+          <Button size="sm" variant="outline" onClick={() => onOpenTab("sync")}>
+            {isFile ? "Upload a file" : "Open Sync tab"}
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }

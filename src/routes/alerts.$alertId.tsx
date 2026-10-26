@@ -1,26 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { TenantPortal } from "@/components/layout/TenantPortal";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { AlertDetail } from "@/features/alerts/components/AlertsView";
+import { Outlet, createFileRoute } from "@tanstack/react-router";
 
+// Layout for /alerts/$alertId: the detail (alerts.$alertId.index) and edit pages render here.
 export const Route = createFileRoute("/alerts/$alertId")({
-  head: () => ({ meta: [{ title: "Alert — Analytics Console" }] }),
-  component: AlertPage,
+  component: Outlet,
 });
-
-function AlertPage() {
-  const { alertId } = Route.useParams();
-  return (
-    <TenantPortal>
-      <PageHeader
-        title="Alert"
-        crumbs={[
-          { label: "Dashboard", to: "/dashboard" },
-          { label: "Alerts", to: "/alerts" },
-          { label: "Detail" },
-        ]}
-      />
-      <AlertDetail alertId={alertId} />
-    </TenantPortal>
-  );
-}

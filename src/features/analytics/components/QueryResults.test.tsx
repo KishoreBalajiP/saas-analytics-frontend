@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
+import { chartTypesFor } from "@/features/dashboards/chartRecommendation";
 import { QueryResults } from "./QueryResults";
 
 describe("QueryResults", () => {
@@ -42,5 +43,38 @@ describe("QueryResults", () => {
     );
     expect(screen.getByText("2026-02-01 – 2026-02-28 on order_date")).toBeInTheDocument();
     expect(screen.getByText("Time zone Asia/Kolkata")).toBeInTheDocument();
+  });
+
+  it("offers only chart types the query shape supports", () => {
+    expect(chartTypesFor({ connectorIds: ["c"] })).toEqual([]);
+    expect(chartTypesFor({ metrics: [{ op: "count", field: "" }] })).toEqual(["kpi"]);
+    expect(chartTypesFor({ metrics: [{ op: "count", field: "" }], groupBy: ["region"] })).toEqual([
+      "bar",
+      "line",
+      "area",
+      "pie",
+      "doughnut",
+    ]);
+    expect(
+      chartTypesFor({
+        metrics: [
+          { op: "sum", field: "a" },
+          { op: "sum", field: "b" },
+        ],
+        groupBy: ["region"],
+      }),
+    ).toContain("scatter");
+  });
+
+  it("shows raw rows as a table only", () => {
+    render(
+      <QueryResults
+        result={{ rows: [{ region: "EU" }], total: 1 }}
+        meta={{ total: 1 }}
+        lastParams={{ connectorIds: ["c1"] }}
+      />,
+    );
+    expect(screen.getByText("Table only")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "View mode" })).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { useId, useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ import type {
 import type { Connector } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { MetricPicker } from "@/features/metrics/components/MetricPicker";
+import * as connectorsApi from "@/features/datasets/api";
+import { DATASET_STATE_LABELS, datasetState } from "@/features/datasets/sync";
 import type { MetricDefinition } from "@/features/metrics/api";
 import { validateAnalyticsQuery, type QueryValidationError } from "@/features/analytics/validation";
 import { DateRangeFields } from "@/features/analytics/components/DateRangeFields";
@@ -122,6 +125,25 @@ export function QueryBuilder({
   const [limit, setLimit] = useState(initialParams?.limit ?? 50);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<QueryValidationError[]>([]);
+
+  // Field names of the selected datasets (from their profiled schemas) are
+  // offered as suggestions; any field can still be typed.
+  const fieldListId = `analytics-fields-${useId()}`;
+  const schemaQueries = useQueries({
+    queries: selectedConnectorIds.map((id) => ({
+      queryKey: ["connector", id, "schema"],
+      queryFn: () => connectorsApi.getSchema(id),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  });
+  const schemaFields = new Map<string, string>();
+  for (const q of schemaQueries)
+    for (const f of q.data?.fields ?? []) schemaFields.set(f.name, f.type);
+  const fieldNames = [...schemaFields.keys()].sort();
+  const dateFieldNames = fieldNames.filter((name) =>
+    ["date", "datetime"].includes(schemaFields.get(name) ?? ""),
+  );
 
   function toggleConnector(id: string) {
     setSelectedConnectorIds((prev) =>
@@ -230,29 +252,46 @@ export function QueryBuilder({
 
   return (
     <div className="space-y-6">
+      <datalist id={fieldListId}>
+        {fieldNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
       {/* Connector selection */}
       <fieldset className="space-y-2">
         <Label className="text-sm font-medium">Dataset / Connectors</Label>
         {connectors.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            No connectors available. Create one first.
+            No datasets yet. Upload a file or connect a source in Datasets first.
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {connectors.map((c) => {
               const selected = selectedConnectorIds.includes(c._id);
+              const state = datasetState(c);
+              // The API refuses datasets whose first import is running or failed.
+              const blocked = (state === "processing" || state === "failed") && !selected;
               return (
                 <button
                   key={c._id}
                   type="button"
+                  disabled={blocked}
+                  aria-pressed={selected}
+                  title={state === "ready" ? undefined : DATASET_STATE_LABELS[state]}
                   onClick={() => toggleConnector(c._id)}
                   className={cn(
                     "rounded-md border border-border px-3 py-1.5 text-xs transition-colors",
                     selected ? "border-primary bg-primary/10 text-primary" : "hover:bg-accent/50",
+                    blocked && "cursor-not-allowed opacity-50 hover:bg-transparent",
                   )}
                 >
                   {c.name}{" "}
                   <span className="ml-1 text-muted-foreground">({c.type.toUpperCase()})</span>
+                  {state !== "ready" ? (
+                    <span className="ml-1 text-muted-foreground">
+                      · {DATASET_STATE_LABELS[state]}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -302,6 +341,7 @@ export function QueryBuilder({
               onChange={(e) => updateMetric(index, { field: e.target.value })}
               className="flex-1"
               aria-label="Metric field"
+              list={fieldListId}
             />
             <Select
               value={metric.op}
@@ -355,6 +395,7 @@ export function QueryBuilder({
               onChange={(e) => updateGroupBy(index, { field: e.target.value })}
               className="flex-1"
               aria-label="Group by field"
+              list={fieldListId}
             />
             <select
               className="h-9 w-32 rounded-md border border-input bg-background px-2 text-sm"
@@ -412,6 +453,7 @@ export function QueryBuilder({
               onChange={(e) => updateFilter(index, { field: e.target.value })}
               className="flex-1"
               aria-label="Filter field"
+              list={fieldListId}
             />
             <Select
               value={filter.op}
@@ -463,6 +505,7 @@ export function QueryBuilder({
           value={dateRange}
           onChange={setDateRange}
           timezone={timezone}
+          fieldSuggestions={dateFieldNames}
         />
       </fieldset>
 
@@ -500,6 +543,7 @@ export function QueryBuilder({
                     onChange={(e) => updateOrderBy(index, { field: e.target.value })}
                     className="flex-1"
                     aria-label="Sort field"
+                    list={fieldListId}
                   />
                   <Select
                     value={order.direction}

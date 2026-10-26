@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Copy, Loader2, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ import { ApiError } from "@/lib/api/client";
 import type { Dashboard, Widget } from "@/lib/api/types";
 import { useTenantSession } from "@/lib/auth/session";
 import { WidgetPanel } from "./WidgetPanel";
+import { columnSpanClass, orderWidgets } from "@/features/dashboards/layout";
 import { Permissions, hasPermission } from "@/lib/permissions";
 
 const PAGE_LIMIT = 25;
@@ -53,6 +55,7 @@ function formatDate(value?: string) {
 export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
   const { permissions } = useTenantSession();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const canView = hasPermission(permissions, Permissions.DASHBOARDS_VIEW);
@@ -107,6 +110,7 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
     onSuccess: () => {
       toast.success("Dashboard deleted");
       void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void navigate({ to: "/dashboards" });
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "Unable to delete dashboard"),
@@ -135,7 +139,7 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
   const dashboard = dashboardQuery.data as Dashboard | undefined;
   if (!dashboard) return null;
 
-  const widgets = (widgetsQuery.data?.data ?? dashboard.widgets ?? []) as Widget[];
+  const widgets = orderWidgets((widgetsQuery.data?.data ?? dashboard.widgets ?? []) as Widget[]);
   // The dashboard's default window (a relative preset is resolved by the
   // server at each run, in the workspace time zone).
   const defaultRange = dateRangeFromDraft(draftFromDateRange(dashboard.filters?.["dateRange"]));
@@ -147,8 +151,8 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
     <div className="space-y-6">
       {dashboard.status === "draft" && (
         <p className="text-xs text-muted-foreground">
-          Draft: only editors see this dashboard. Publish it to share it; every widget is checked
-          first.
+          Draft: you can keep editing it. Embeds and the external API only serve published
+          dashboards; publishing checks every widget first.
         </p>
       )}
       {publishErrors.length > 0 && (
@@ -261,21 +265,13 @@ export function DashboardDetailView({ dashboardId }: { dashboardId: string }) {
           }
         />
       ) : (
-        <div className="grid grid-cols-12 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
           {widgets.map((widget) => {
             const execution = executionByWidget.get(widget._id);
             return (
               <Card
                 key={widget._id}
-                className="overflow-hidden"
-                style={
-                  widget.position
-                    ? {
-                        gridColumn: `${Math.max(1, Math.min(12, widget.position.x + 1))} / span ${Math.max(1, Math.min(12, widget.position.w))}`,
-                        gridRow: `${Math.max(1, widget.position.y + 1)} / span ${Math.max(1, widget.position.h)}`,
-                      }
-                    : undefined
-                }
+                className={`min-w-0 overflow-hidden ${columnSpanClass(widget.position)}`}
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between text-base">

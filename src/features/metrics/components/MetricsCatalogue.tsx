@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/common/states";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import * as metricsApi from "@/features/metrics/api";
 import * as connectorsApi from "@/features/datasets/api";
 import * as analyticsApi from "@/features/analytics/api";
+import { selectableDatasets } from "@/features/datasets/sync";
 import type { MetricDefinition, MetricInput } from "@/features/metrics/api";
 import {
   FiltersEditor,
@@ -130,6 +131,11 @@ export function MetricsCatalogue() {
                       Approve v{m.version}
                     </Button>
                   )}
+                  {!canApprove && m.status === "draft" && (
+                    <span className="text-xs text-muted-foreground">
+                      Waiting for approval by an Owner or Admin
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -177,7 +183,23 @@ export function MetricForm({
     queryKey: ["connectors", "list", { limit: 200 }],
     queryFn: () => connectorsApi.list({ limit: 200 }),
   });
-  const connectors = (connectorsQuery.data?.data ?? []) as Array<{ _id: string; name: string }>;
+  // Ready datasets only (the metric's current dataset stays selectable).
+  const connectors = selectableDatasets(
+    connectorsQuery.data?.data ?? [],
+    connectorId ? [connectorId] : [],
+  );
+  const schemaQuery = useQuery({
+    queryKey: ["connector", connectorId, "schema"],
+    queryFn: () => connectorsApi.getSchema(connectorId),
+    enabled: !!connectorId,
+    retry: false,
+  });
+  const numericOps = ["sum", "avg", "min", "max"];
+  // Suggest numeric fields for sum/avg/min/max, every field otherwise.
+  const fieldSuggestions = (schemaQuery.data?.fields ?? [])
+    .filter((f) => !numericOps.includes(aggregation) || f.type === "number" || f.type === "integer")
+    .map((f) => f.name);
+  const fieldListId = `metric-fields-${useId()}`;
   // Preview runs the definition through the validated analytics query API
   // (a draft can't be referenced by key yet, so the inline definition is sent).
   const preview = useMutation({
@@ -305,7 +327,17 @@ export function MetricForm({
       {aggregation !== "count" && (
         <div>
           <Label htmlFor="metric-field">Field</Label>
-          <Input id="metric-field" value={field} onChange={(e) => setField(e.target.value)} />
+          <Input
+            id="metric-field"
+            list={fieldListId}
+            value={field}
+            onChange={(e) => setField(e.target.value)}
+          />
+          <datalist id={fieldListId}>
+            {fieldSuggestions.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
         </div>
       )}
       {keptFilters ? (
