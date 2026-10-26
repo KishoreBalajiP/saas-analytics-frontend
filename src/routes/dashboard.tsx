@@ -44,7 +44,9 @@ function DashboardContent() {
   const hasSyncedSource = (connectorsQuery.data?.data ?? []).some((connector) =>
     Boolean(connector.lastSyncedAt),
   );
-  const hasDashboard = (dashboardsQuery.data?.data.length ?? 0) > 0;
+  const dashboardCount =
+    dashboardsQuery.data?.meta?.total ?? dashboardsQuery.data?.data.length ?? 0;
+  const hasDashboard = dashboardCount > 0;
   const setupComplete = hasSyncedSource && hasDashboard;
   const setupUnavailable = connectorsQuery.isError || dashboardsQuery.isError;
 
@@ -97,8 +99,12 @@ function DashboardContent() {
               {setupUnavailable
                 ? "We could not confirm setup progress from the server."
                 : setupComplete
-                  ? "A data source has synced and your workspace has a dashboard."
-                  : "Connect and sync a file source, then create your first dashboard. You can leave and resume later."}
+                  ? `A data source has synced and your workspace has ${dashboardCount} dashboard${dashboardCount === 1 ? "" : "s"}.`
+                  : hasDashboard
+                    ? `You have ${dashboardCount} dashboard${dashboardCount === 1 ? "" : "s"}. Upload a file or sync a data source to fill ${dashboardCount === 1 ? "it" : "them"} with real data.`
+                    : hasSyncedSource
+                      ? "Your data is ready. Create your first dashboard to save charts from it."
+                      : "Upload a file or connect a data source, then create your first dashboard. You can leave and resume later."}
             </p>
             <Button asChild variant="default" className="w-fit">
               <AppLink to="/onboarding">

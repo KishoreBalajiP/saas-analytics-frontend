@@ -248,6 +248,13 @@ export function CreateConnectorDialog({
               />
             </div>
 
+            {(selectedType === "csv" || selectedType === "xlsx") && (
+              <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                Tip: <strong>Upload file</strong> on the Datasets page names, previews and imports a
+                file in one step. This option creates an empty dataset you fill from its Sync tab.
+              </p>
+            )}
+
             {selectedType === "csv" && (
               <>
                 <div className="space-y-2">

@@ -40,7 +40,6 @@ import type {
 } from "@/lib/api/types";
 
 const WIDGET_TYPES: WidgetType[] = ALL_WIDGET_TYPES;
-const DEFAULT_POSITION = { x: 0, y: 0, w: 6, h: 4 };
 const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
 
 function FieldErrors({ messages }: { messages: string[] }) {
@@ -128,10 +127,14 @@ export function WidgetBuilder({
     mutationFn: () => {
       const { issues: found, body } = build();
       if (found.length) return Promise.reject(new Error("Fix the highlighted fields."));
-      const payload = { ...body, position: widget?.position ?? DEFAULT_POSITION };
+      // A new widget gets the next free grid slot from the server; an edited
+      // one keeps its place (the editor's Layout panel moves and resizes).
       return widget
-        ? dashboardsApi.updateWidget(dashboardId, widget._id, payload)
-        : dashboardsApi.createWidget(dashboardId, payload);
+        ? dashboardsApi.updateWidget(dashboardId, widget._id, {
+            ...body,
+            ...(widget.position ? { position: widget.position } : {}),
+          })
+        : dashboardsApi.createWidget(dashboardId, body);
     },
     onSuccess: () => {
       setServerError(null);

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { TenantPortal } from "@/components/layout/TenantPortal";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -48,7 +48,10 @@ function AnalyticsContent() {
   const [lastParams, setLastParams] = useState<AnalyticsQueryParams | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [activeTab, setActiveTab] = useState("query");
+  const [activeTab, setActiveTab] = useState<"query" | "history">("query");
+  // Bumped when a history entry is re-run so the builder reloads its params.
+  const [builderKey, setBuilderKey] = useState(0);
+  const resultsRef = useRef<HTMLElement | null>(null);
 
   // ai-catalogue: approved metrics for the metric picker.
   const metricsQuery = useQuery({
@@ -73,7 +76,10 @@ function AnalyticsContent() {
     setLoading(true);
     setError(null);
     setLastParams(params);
-    setActiveTab("results");
+    // Stacked (narrow) layout: bring the results panel into view.
+    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 1023px)").matches) {
+      resultsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }
     try {
       const response = await analyticsApi.runQuery(params);
       setResult(response.result);
@@ -104,7 +110,8 @@ function AnalyticsContent() {
   }
 
   function handleRerun(params: AnalyticsQueryParams) {
-    setActiveTab("results");
+    setActiveTab("query");
+    setBuilderKey((k) => k + 1);
     void handleRun(params);
   }
 
@@ -116,15 +123,27 @@ function AnalyticsContent() {
         crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Analytics" }]}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 xl:col-span-1">
-          <TabsList>
-            <TabsTrigger value="query">Builder</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
-          <TabsContent value="query" className="pt-4">
-            <div className="rounded-lg border border-border bg-card p-4">
+      {/* Two aligned panels: query (left) and results (right); stacked on narrow screens. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <section aria-label="Query" className="min-w-0 rounded-lg border border-border bg-card">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as "query" | "history")}
+          >
+            <div className="flex min-h-14 items-center justify-between gap-3 border-b border-border px-4 py-2">
+              <h2 className="text-sm font-semibold">Query</h2>
+              <TabsList className="h-8">
+                <TabsTrigger value="query" className="text-xs">
+                  Builder
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-xs">
+                  History
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="query" className="m-0 p-4">
               <QueryBuilder
+                key={builderKey}
                 connectors={connectors}
                 onRun={handleRun}
                 loading={loading}
@@ -133,19 +152,24 @@ function AnalyticsContent() {
                 timezone={timezone}
                 catalogueMetrics={metricsQuery.data?.data}
               />
-            </div>
-          </TabsContent>
-          <TabsContent value="history" className="pt-4">
-            <div className="rounded-lg border border-border bg-card p-4">
+            </TabsContent>
+            <TabsContent value="history" className="m-0 p-4">
               <QueryHistory onRerun={handleRerun} onView={handleRerun} />
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </section>
 
-        <div className="min-w-0 xl:col-span-1">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h3 className="mb-4 text-sm font-semibold">Results</h3>
+        <section
+          ref={resultsRef}
+          aria-label="Results"
+          className="min-w-0 scroll-mt-4 rounded-lg border border-border bg-card"
+        >
+          <div className="flex min-h-14 items-center border-b border-border px-4 py-2">
+            <h2 className="text-sm font-semibold">Results</h2>
+          </div>
+          <div className="p-4">
             <QueryResults
+              key={resultShapeKey(lastParams)}
               result={result}
               meta={meta}
               loading={loading}
@@ -159,8 +183,15 @@ function AnalyticsContent() {
               }}
             />
           </div>
-        </div>
+        </section>
       </div>
     </>
   );
+}
+
+/** Results keep the user's chart choice while paging, and reset for a different query. */
+function resultShapeKey(params: AnalyticsQueryParams | undefined) {
+  if (!params) return "none";
+  const { page: _page, ...rest } = params;
+  return JSON.stringify(rest);
 }

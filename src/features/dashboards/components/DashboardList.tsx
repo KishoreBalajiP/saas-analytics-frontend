@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -207,6 +208,7 @@ function DashboardFormDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
@@ -216,13 +218,20 @@ function DashboardFormDialog({
         name: name.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
       }),
-    onSuccess: () => {
-      toast.success("Dashboard created");
+    onSuccess: (dashboard) => {
+      toast.success("Dashboard created as a draft");
       setName("");
       setDescription("");
       setError("");
       onOpenChange(false);
       void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      // Open the new draft straight away: its empty state offers "Add widget".
+      if (dashboard?._id) {
+        void navigate({
+          to: "/dashboards/$dashboardId",
+          params: { dashboardId: dashboard._id },
+        });
+      }
     },
     onError: (cause) => setError(errorMessage(cause, "Unable to create dashboard")),
   });

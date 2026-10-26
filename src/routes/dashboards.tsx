@@ -1,21 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute } from "@tanstack/react-router";
 
-import { TenantPortal } from "@/components/layout/TenantPortal";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { DashboardList } from "@/features/dashboards/components/DashboardList";
-
+// Layout for /dashboards: the list (dashboards.index), detail and edit pages render
+// here. Without the Outlet the detail routes matched but never rendered.
 export const Route = createFileRoute("/dashboards")({
   head: () => ({
     meta: [{ title: "Dashboards — Analytics Console" }],
   }),
-  component: () => (
-    <TenantPortal>
-      <PageHeader
-        title="Dashboards"
-        description="Visualize your data with KPI, table, and chart widgets."
-        crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Dashboards" }]}
-      />
-      <DashboardList />
-    </TenantPortal>
-  ),
+  component: Outlet,
 });

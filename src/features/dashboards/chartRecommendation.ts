@@ -49,6 +49,15 @@ export function supportedWidgetTypes(query: AnalyticsQueryParams | undefined): W
   return out;
 }
 
+/** Charts a result can draw (same rules as dashboard widgets), table excluded. */
+export function chartTypesFor(
+  query: AnalyticsQueryParams | undefined,
+): Array<Exclude<WidgetType, "table">> {
+  return supportedWidgetTypes(query).filter(
+    (t): t is Exclude<WidgetType, "table"> => t !== "table",
+  );
+}
+
 /**
  * Automatic chart choice: single value -> kpi, date bucket -> line,
  * two measures -> scatter, <= 6 categories with one measure -> pie,

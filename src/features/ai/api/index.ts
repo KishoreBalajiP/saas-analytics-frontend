@@ -13,7 +13,8 @@ export interface AiStatus {
   action?: string | null;
 }
 
-export type AiChartType = "kpi" | "table" | "bar" | "line" | "area" | "pie";
+export type AiChartType =
+  "kpi" | "table" | "bar" | "line" | "area" | "pie" | "doughnut" | "scatter";
 
 export interface AiVisualization {
   type: AiChartType;
@@ -37,6 +38,8 @@ export interface AiAnswer {
   result?: { rows: Array<Record<string, unknown>>; columns: string[] };
   /** Server-recommended chart, derived from the actual result shape. */
   visualization?: AiVisualization;
+  /** Datasets the planner saw: `truncated` when only the most relevant were searched. */
+  scope?: { available: number; offered: number; truncated: boolean };
   /** Set when this answer followed up on an earlier question. */
   previousQuestionId?: string;
   provenance?: {

@@ -158,7 +158,7 @@ describe("ConnectorList", () => {
       } as unknown as ReturnType<typeof useMutation>);
 
       render(<ConnectorList />);
-      expect(screen.getByText(/No connectors/)).toBeInTheDocument();
+      expect(screen.getByText(/No datasets yet/)).toBeInTheDocument();
     });
   });
 });

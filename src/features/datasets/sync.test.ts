@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 import {
+  datasetState,
+  selectableDatasets,
   formatDuration,
   isSyncInFlight,
   syncErrorMessage,
@@ -79,5 +81,24 @@ describe("dataset sync helpers", () => {
     expect(formatDuration(12345)).toBe("12.3 s");
     expect(formatDuration(245000)).toBe("4 min 05 s");
     expect(formatDuration(null)).toBe("—");
+  });
+});
+
+describe("dataset readiness", () => {
+  it("derives ready / processing / failed / empty from sync bookkeeping", () => {
+    expect(datasetState({ lastSyncedAt: "2026-10-01", syncStatus: "running" })).toBe("ready");
+    expect(datasetState({ lastSyncedAt: null, syncStatus: "queued" })).toBe("processing");
+    expect(datasetState({ lastSyncedAt: null, syncStatus: "failed" })).toBe("failed");
+    expect(datasetState({ syncStatus: "idle" })).toBe("empty");
+  });
+
+  it("offers ready datasets plus the ones already in use", () => {
+    const list = [
+      { _id: "a", lastSyncedAt: "2026-10-01" },
+      { _id: "b", syncStatus: "running" as const },
+      { _id: "c", syncStatus: "failed" as const },
+    ];
+    expect(selectableDatasets(list).map((d) => d._id)).toEqual(["a"]);
+    expect(selectableDatasets(list, ["c"]).map((d) => d._id)).toEqual(["a", "c"]);
   });
 });

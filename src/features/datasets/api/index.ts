@@ -108,6 +108,48 @@ export function previewFile(connectorId: string, file: File) {
   });
 }
 
+/** Options for a CSV / XLSX upload (multipart fields). */
+export interface FileImportOptions {
+  hasHeader?: boolean;
+  /** CSV only: one character; "\t" for tab. */
+  delimiter?: string;
+  /** XLSX only: the sheet NAME to read (default: the first sheet). */
+  sheet?: string;
+}
+
+export interface FilePreview extends PreviewResult {
+  type: "csv" | "xlsx";
+  filename: string | null;
+}
+
+function fileForm(file: File, fields: Record<string, string | boolean | undefined>) {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== "") formData.append(key, String(value));
+  }
+  formData.append("file", file);
+  return formData;
+}
+
+/** Preview a CSV / XLSX before any dataset exists (nothing is stored). */
+export function previewNewFile(file: File, options: FileImportOptions = {}) {
+  return request<FilePreview>("/connectors/file-preview", {
+    method: "POST",
+    formData: fileForm(file, { ...options }),
+  });
+}
+
+/**
+ * Create a named dataset from a CSV / XLSX upload and queue its import
+ * (202). The dataset is ready once its sync succeeds.
+ */
+export function importFile(file: File, body: { name: string } & FileImportOptions) {
+  return request<{ connector: Connector; sync: SyncAccepted }>("/connectors/import", {
+    method: "POST",
+    formData: fileForm(file, { ...body }),
+  });
+}
+
 export function syncFile(connectorId: string, file: File) {
   const formData = new FormData();
   formData.append("file", file);

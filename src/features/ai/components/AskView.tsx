@@ -124,14 +124,17 @@ export function AskView() {
           answer={answer}
           onClarify={(o) => ask(`${question} (${o})`)}
           actions={
-            answer.outcome === "answered" && answer.plan && answer.provenance?.datasetId ? (
-              <AddToDashboardButton
-                query={answer.plan}
-                datasetId={answer.provenance.datasetId}
-                rows={answer.result?.rows ?? []}
-                defaultTitle={question.trim().slice(0, 120)}
-              />
-            ) : undefined
+            answer.outcome === "answered" && answer.plan && answer.provenance?.datasetId
+              ? (chartType: AiChartType) => (
+                  <AddToDashboardButton
+                    query={answer.plan!}
+                    datasetId={answer.provenance!.datasetId}
+                    rows={answer.result?.rows ?? []}
+                    defaultTitle={question.trim().slice(0, 120)}
+                    defaultType={chartType}
+                  />
+                )
+              : undefined
           }
         />
       )}
@@ -192,6 +195,8 @@ const CHART_LABELS: Record<AiChartType, string> = {
   area: "Area",
   bar: "Bar",
   pie: "Pie",
+  doughnut: "Doughnut",
+  scatter: "Scatter",
   table: "Table",
 };
 
@@ -202,8 +207,11 @@ export function AnswerView({
 }: {
   answer: AiAnswer;
   onClarify: (option: string) => void;
-  /** Extra controls rendered next to the chart switcher (e.g. "Add to dashboard"). */
-  actions?: ReactNode;
+  /**
+   * Extra controls next to the chart switcher (e.g. "Add to dashboard"); a
+   * function receives the chart type currently shown.
+   */
+  actions?: ReactNode | ((chartType: AiChartType) => ReactNode);
 }) {
   const recommended = answer.visualization?.type ?? "table";
   const [chosen, setChosen] = useState<{ id: string; type: AiChartType } | null>(null);
@@ -262,7 +270,11 @@ export function AnswerView({
             </Button>
           ))}
         </div>
-        {actions ? <div className="ml-auto flex gap-2">{actions}</div> : null}
+        {actions ? (
+          <div className="ml-auto flex gap-2">
+            {typeof actions === "function" ? actions(chartType) : actions}
+          </div>
+        ) : null}
       </div>
       <WidgetView
         type={chartType}
@@ -280,6 +292,11 @@ export function AnswerView({
           {answer.provenance?.rowCount} of {answer.provenance?.total} rows · time zone{" "}
           {answer.provenance?.timezone}
         </p>
+        {answer.scope?.truncated ? (
+          <p className="text-xs">
+            Searched the {answer.scope.offered} most relevant of {answer.scope.available} datasets.
+          </p>
+        ) : null}
         {answer.checks?.includes("truncated") ? (
           <p className="text-xs">Only the first {answer.provenance?.rowCount} rows are shown.</p>
         ) : null}
